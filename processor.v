@@ -62,7 +62,131 @@ module processor(
 	input [31:0] data_readRegA, data_readRegB;
 
 	/* YOUR CODE STARTS HERE */
-	
+
+    //----------FETCH----------
+    // have a single register PC (32 bits) FALLING EDGE!!!!!!!!!!!!!!!!
+    // the input to this register is wired to the output of the adder 
+        // (for now, but eventually it will be the output of the PCmux)
+    // global reset pin wired to here
+    // clk comes from clk
+    wire [31:0] PC, PCplus1
+    latchFE PROGRAMCOUNTER(PC, PCplus1, clock, 1'b1, reset);
+    // this is wired to an adder that adds 1
+    wire [31:0] trash0, trash1;
+    wire trash2;
+    fulladder PCadder(trash0, trash1, PCplus1, trash2, PC, 32'b1, 1'b0);
+    // the output of this register is wired to the input to imem
+    assign address_imem = PC;
+    // get data from imem
+    // ---------FETCH---------
+
+    // FD LATCH---------------
+    // output of imem goes into the FD latch on the falling edge (32 bit falling edge register)
+    // ALSO LATCH THE PC
+    wire [31:0] FD_Instruction, FD_PC;
+    latchFE FD_Instruction0(FD_Instruction, q_imem, clock, 1'b1, reset);
+    latchFE FD_PC0(FD_PC, PC, clock, 1'b1, reset);
+    // FD LATCH---------------
+
+    //----------DECODE----------
+    // output of the FD latch goes into instruction decode and control
+    wire [4:0] opcode, rd, rs, rt, shamt, ALUop;
+    wire [16:0] immed;
+    wire [26:0] target;
+    instdecode instructionDecode(FD_Instruction, opcode, rd, rs, rt, shamt, ALUop, immed, target);
+
+    wire RWE, ALUinSEI, DMWE, BNE, BLT;
+    wire [1:0] destRA, valtoWrite, PCmux;
+    wire [4:0] ALUopOut;    
+    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux);
+
+    // remember, reg file is rising edge
+    // register file read two source regs come from decode
+    // register file write comes from NOT THIS INSTRUCTION
+    // comes from the instruction that is currently in WRITEBACK
+    wire [4:0] regtoWrite; // TODO: WRITEBACK
+    wire [31:0] valuetoWrite; // TODO: WRITEBACK
+    // RWE comes from control
+    // clk comes from clk
+    // reset wired here
+    wire [31:0] rsVal, rtVal;
+    // register file write data comes from valtoWrite mux; will write on rising edge
+    // for now, this is ALWAYS the output of the ALU
+    regfile REGISTERFILE(clock, RWE, reset, regtoWrite, rs, rt, valuetoWrite, rsVal, rtVal);
+
+    // ALSO in this stage, sign extend the immediate
+    wire [31:0] signExtImm;
+    assign [16:0] signExtImm = immed[16:0];
+    assign signExtImm[17] = immed[16];
+    assign signExtImm[18] = immed[16];
+    assign signExtImm[19] = immed[16];
+    assign signExtImm[20] = immed[16];
+    assign signExtImm[21] = immed[16];
+    assign signExtImm[22] = immed[16];
+    assign signExtImm[23] = immed[16];
+    assign signExtImm[24] = immed[16];
+    assign signExtImm[25] = immed[16];
+    assign signExtImm[26] = immed[16];
+    assign signExtImm[27] = immed[16];
+    assign signExtImm[28] = immed[16];
+    assign signExtImm[29] = immed[16];
+    assign signExtImm[30] = immed[16];
+    assign signExtImm[31] = immed[16];
+
+    // ALSO, pad the target
+    wire [31:0] targetPAD
+    assign [26:0] targetPAD = target[26:0];
+    assign [31:27] targetPAD = 5'b0;
+
+    // DX LATCH---------------
+    // the two read data values from the register go into the DX latch
+    // latch the sign extended immediate
+    wire [31:0] DX_RSVAL, DX_RTVAL, DX_PC, DX_SEI, DX_TARGET, DX_CONTROL;
+    latchFE DX_RSVAL0(DX_RSVAL, rsVal, clock, 1'b1, reset);
+    latchFE DX_RTVAL0(DX_RTVAL, rtVal, clock, 1'b1, reset);
+    latchFE DX_PC0(DX_PC, FD_PC, clock, 1'b1, reset);
+    latchFE DX_SEI0(DX_SEI, signExtImm, clock, 1'b1, reset);
+    latchFE DX_TARGET0(DX_TARGET, targetPAD, clock, 1'b1, reset);
+    // ALL of the control signals also go into the DX latch and the instruction decode
+        // need to latch rd (5), shamt (5), RWE (1), destRA (2), ALUopOut (5), ALUinSEI (1), DMWE (1), valtoWrite (2), BNE (1), BLT (1), PCmux (2)
+        // 5 + 5 + 1 + 2 + 5 + 1 + 1 + 2 + 1 + 1 + 2
+    wire [31:0] controlIn;
+    assign controlIn[31:27] = rd;
+    assign controlIn[26:22] = shamt;
+    assign controlIn[21] = RWE;
+    assign controlIn[21:19] = destRA;
+    assign controlIn[18:14] = ALUopOut;
+    assign controlIn[13] = ALUinSEI;
+    assign controlIn[12] = DMWE;
+    assign controlIn[11:10] = valtoWrite;
+    assign controlIn[9] = BNE;
+    assign controlIn[8] = BLT;
+    assign control[7:6] = PCmux;
+    latchFE DX_CONTROL0(DX_CONTROL, controlIn, clock, 1'b1, reset);
+    // DX LATCH---------------
+
+    //----------EXECUTE----------
+    // the RSoutput of the reg file goes into the ALU
+    // EITHER RT OR the sign extended immediate goes into the second port of the ALU
+        // check using mux
+    // ALUop control from the latch goes into the ALU op
+    // output of the ALU gets latched into the X/M latch
+    // eventually will have to latch rtout also for store word
+    // control values also get latched other than ALUin2 and ALUop
+
+    //----------MEMORY----------
+    // for now, do nothing and just pass the values through to the MW latch
+    // eventually, take the output of the ALU and pass it in as the address to dmem
+    // DMWE from control
+    // data in from the output of the register file rtout goes into datain DMEM
+    // data out from dmem eventually goes into the valtoWrite mux
+    // data memory out and alu out both go into the latch
+
+    //----------WRITEBACK----------
+    // take output of MW latch (valtoWrite) and wire into register file
+    // also, take the reg write control signal from MW latch and put it into regtowrite
+    // nothing left to latch
+
 	/* END CODE */
 
 endmodule
