@@ -20,13 +20,14 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     assign setx = decoderOut[21];
 
     wire mult, div;
+    wire [31:0] aludecoder;
     decoder32 babdecodealu(aludecoder, ALUop, 1'b1);
-    assign mult = decoderOut[6];
-    assign div = decoderOut[7];
+    assign mult = aludecoder[6];
+    assign div = aludecoder[7];
 
 
     output RWE;
-    assign RWE = ALUinst | lw | jal;
+    assign RWE = ALUinst | lw | jal | addi;
 
     // destination register
     // 00 is rd
@@ -34,7 +35,7 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     // 10 is 30 (rstatus) mult or div AND exception
     output [1:0] destRA;
     assign destRA[0] = jal;
-    assign destRA[0] = mult | div; 
+    assign destRA[1] = ALUinst & (mult | div); 
     // MAKE SURE TO CHECK EXCEPTION BEFORE THIS BC OTHERWISE ITS JUST RD
 
 
