@@ -1,4 +1,4 @@
-module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux);
+module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW);
     
     input [4:0] opcode, ALUop;
     
@@ -25,6 +25,8 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     assign mult = aludecoder[6];
     assign div = aludecoder[7];
 
+    output SW;
+    assign SW = sw;
 
     output RWE;
     assign RWE = ALUinst | lw | jal | addi;
