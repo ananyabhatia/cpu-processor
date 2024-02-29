@@ -95,10 +95,10 @@ module processor(
     wire [26:0] target;
     instdecode instructionDecode(FD_Instruction, opcode, rd, rs, rt, shamt, ALUop, immed, target);
 
-    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi;
+    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi, mult, div;
     wire [1:0] destRA, valtoWrite, PCmux;
     wire [4:0] ALUopOut;    
-    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi);
+    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi, mult, div);
 
     // remember, reg file is rising edge
     // register file read two source regs come from decode
@@ -149,7 +149,7 @@ module processor(
     //---------DX LATCH---------
     // the two read data values from the register go into the DX latch
     // latch the sign extended immediate
-    wire [31:0] DX_RSVAL, DX_RTVAL, DX_PC, DX_SEI, DX_TARGET, DX_CONTROL;
+    wire [31:0] DX_RSVAL, DX_RTVAL, DX_PC, DX_SEI, DX_TARGET, DX_CONTROL, DX_OPCODE;
     latchFE DX_RSVAL0(DX_RSVAL, rsVal, clock, 1'b1, reset);
     latchFE DX_RTVAL0(DX_RTVAL, rtVal, clock, 1'b1, reset);
     latchFE DX_PC0(DX_PC, FD_PC, clock, 1'b1, reset);
@@ -172,6 +172,12 @@ module processor(
     assign controlIn[7:6] = PCmux;
     assign controlIn[2] = addi;
     latchFE DX_CONTROL0(DX_CONTROL, controlIn, clock, 1'b1, reset);
+    wire [31:0] latchOP;
+    assign latchOP[4:0] = opcode;
+    assign latchOP[9:5] = ALUop;
+    assign latchOP[10] = mult;
+    assign latchOP[11] = div;
+    latchFE DX_OPCODE0(DX_OPCODE, latchOP, clock, 1'b1, reset);
     //---------DX LATCH---------
 
     //----------EXECUTE----------
@@ -179,6 +185,10 @@ module processor(
     // EITHER RT OR the sign extended immediate goes into the second port of the ALU
         // check using mux
     // ALUop control from the latch goes into the ALU op
+    // if HERE, the instruction is a mult or a div, use this value to set ctrlmult or ctrldiv to high as long as count is zero
+    // also, send this to the DX latch and make it insert a NOP for OPCODE and CONTROL to be effective on the next cycle
+    // pause PC, pause FD latch, nop should be in DX latch
+    // use tff
     wire [31:0] ALUinB, ALUOUT;
     wire isNE, isLE, ovf;
     mux_2 RTorSEI(ALUinB, DX_CONTROL[13], DX_RTVAL, DX_SEI);

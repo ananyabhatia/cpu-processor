@@ -1,4 +1,4 @@
-module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI);
+module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI, mult, div);
     
     input [4:0] opcode, ALUop;
     
@@ -19,13 +19,14 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     assign bex = decoderOut[22];
     assign setx = decoderOut[21];
 
-    wire mult, div, add, sub;
+    output mult, div;
+    wire add, sub;
     wire [31:0] aludecoder;
     decoder32 babdecodealu(aludecoder, ALUop, 1'b1);
     assign add = aludecoder[0];
     assign sub = aludecoder[1];
-    assign mult = aludecoder[6];
-    assign div = aludecoder[7];
+    assign mult = ALUinst & aludecoder[6];
+    assign div = ALUinst & aludecoder[7];
 
     output SW;
     assign SW = sw;
