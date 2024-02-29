@@ -196,6 +196,15 @@ module processor(
     assign DX_CONTROL[5] = isNE;
     assign DX_CONTROL[4] = isLE;
     assign DX_CONTROL[3] = ovf;
+    // MULTDIV SECTION
+    wire ctrl_MD = DX_OPCODE[10] | DX_OPCODE[11];
+    wire[31:0] mdOpA, mdOpB;
+    singlereg opA(mdOpA, DX_RSVAL, clock, ctrl_MD, 1'b0);
+    singlereg opB(mdOpB, DX_RTVAL, clock, ctrl_MD, 1'b0);
+    wire [31:0] mdResult;
+    wire mdEX, rdy;
+    multdiv MULTDIV(mdOpA, mdOpB, DX_OPCODE[10], DX_OPCODE[11], clock, mdResult, mdEX, rdy);
+    // MULTDIV SECTION
     //----------EXECUTE----------
 
     //----------XM LATCH----------
@@ -203,10 +212,11 @@ module processor(
     // eventually will have to latch rtout also for store word TODO
     // eventually will also have to latch rsout in order to do jumps TODO
     // control values also get latched other than ALUin2 and ALUop
-    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL;
+    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD;
+    assign ALUorMD = rdy ? mdResult : ALUOUT; // for MULTDIV
     latchFE XM_RTVAL0(XM_RTVAL, DX_RTVAL, clock, 1'b1, reset);
     latchFE XM_RSVAL0(XM_RSVAL, DX_RSVAL, clock, 1'b1, reset);
-    latchFE XM_ALUOUT0(XM_ALUOUT, ALUOUT, clock, 1'b1, reset);
+    latchFE XM_ALUOUT0(XM_ALUOUT, ALUorMD, clock, 1'b1, reset); // for MULDIV
     latchFE XM_PC0(XM_PC, DX_PC, clock, 1'b1, reset);
     latchFE XM_CONTROL0(XM_CONTROL, DX_CONTROL, clock, 1'b1, reset);
     //----------XM LATCH----------
