@@ -95,10 +95,10 @@ module processor(
     wire [26:0] target;
     instdecode instructionDecode(FD_Instruction, opcode, rd, rs, rt, shamt, ALUop, immed, target);
 
-    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw;
+    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi;
     wire [1:0] destRA, valtoWrite, PCmux;
     wire [4:0] ALUopOut;    
-    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw);
+    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi);
 
     // remember, reg file is rising edge
     // register file read two source regs come from decode
@@ -170,6 +170,7 @@ module processor(
     assign controlIn[9] = BNE;
     assign controlIn[8] = BLT;
     assign controlIn[7:6] = PCmux;
+    assign controlIn[2] = addi;
     latchFE DX_CONTROL0(DX_CONTROL, controlIn, clock, 1'b1, reset);
     //---------DX LATCH---------
 
@@ -225,14 +226,31 @@ module processor(
 
     //----------WRITEBACK----------
     // mux data mem out and aluout
-    wire [31:0] toWriteMux;
-    mux_4 writeBackMemorALU(toWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, 32'b0, 32'b0); // eventually 10 will be PC+1
-    assign valuetoWrite = toWriteMux;
+    wire [31:0] intermediatetoWriteMux, toWriteMux;
+    mux_4 writeBackMemorALU(intermediatetoWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, 32'b0, 32'b0); // eventually 10 will be PC+1
+    // add1, addi2, sub3, mul4, div5
+    // 000,  100,   001,  110,  011
+    // control[18:14]
+    wire [2:0] EXselect;
+    assign EXselect[0] = MW_CONTROL[14];
+    assign EXselect[1] = MW_CONTROL[15];
+    assign EXselect[2] = MW_CONTROL[16] | MW_CONTROL[2];
+    wire [31:0] writeEX;
+    mux_8 checkEXCEPTION(writeEX, EXselect, 32'd1, 32'd3, 32'b0, 32'd5, 32'd2, 32'b0, 32'd4, 32'b0);
     // take output of MW latch (valtoWrite) and wire into register file
     // mux for register to write to
     // take the reg write control signal from MW latch and put it into regtoWrite
+    wire writeto30;
+    assign writeto30 = MW_CONTROL[20] & MW_CONTROL[3];
+    assign valuetoWrite = writeto30 ? writeEX : intermediatetoWriteMux;
+    wire [1:0] writeRegControl;
+    assign writeRegControl[0] = MW_CONTROL[19];
+    assign writeRegControl[1] = writeto30;
+    // 00 is rd
+    // 01 is 31 (ra) jal
+    // 10 is 30 (rstatus) mult or div AND exception
     wire [4:0] registerToWrite;
-    mux_4_5 whichRegisterWrite(registerToWrite, MW_CONTROL[20:19], MW_CONTROL[31:27], 5'd31, 5'd30, 5'd0);
+    mux_4_5 whichRegisterWrite(registerToWrite, writeRegControl, MW_CONTROL[31:27], 5'd31, 5'd30, 5'd0);
     assign regtoWrite = registerToWrite;
     assign ctrl_writeEnable = MW_CONTROL[21];
     // nothing left to latch

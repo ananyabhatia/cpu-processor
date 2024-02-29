@@ -1,4 +1,4 @@
-module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW);
+module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI);
     
     input [4:0] opcode, ALUop;
     
@@ -19,14 +19,19 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     assign bex = decoderOut[22];
     assign setx = decoderOut[21];
 
-    wire mult, div;
+    wire mult, div, add, sub;
     wire [31:0] aludecoder;
     decoder32 babdecodealu(aludecoder, ALUop, 1'b1);
+    assign add = aludecoder[0];
+    assign sub = aludecoder[1];
     assign mult = aludecoder[6];
     assign div = aludecoder[7];
 
     output SW;
     assign SW = sw;
+
+    output ADDI;
+    assign ADDI = addi;
 
     output RWE;
     assign RWE = ALUinst | lw | jal | addi;
@@ -37,7 +42,7 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     // 10 is 30 (rstatus) mult or div AND exception
     output [1:0] destRA;
     assign destRA[0] = jal;
-    assign destRA[1] = ALUinst & (mult | div); 
+    assign destRA[1] = (ALUinst & (mult | div | add | sub)) | addi; 
     // MAKE SURE TO CHECK EXCEPTION BEFORE THIS BC OTHERWISE ITS JUST RD
 
 
