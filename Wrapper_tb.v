@@ -33,7 +33,7 @@
  *
  **/
 
-module Wrapper_tb #(parameter FILE = "mult");
+module Wrapper_tb #(parameter FILE = "md");
 
 	// FileData
 	localparam DIR = "Test Files/";

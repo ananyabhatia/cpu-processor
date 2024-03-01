@@ -65,12 +65,13 @@ module processor(
 
     //----------FETCH----------
     // have a single register PC (32 bits) FALLING EDGE!!!!!!!!!!!!!!!!
+    wire insertNOP; // MULTDIV NOP INSERTION
     // the input to this register is wired to the output of the adder 
         // (for now, but eventually it will be the output of the PCmux)
     // global reset pin wired to here
     // clk comes from clk
     wire [31:0] PC, PCplus1;
-    latchFE PROGRAMCOUNTER(PC, PCplus1, clock, 1'b1, reset);
+    latchFE PROGRAMCOUNTER(PC, PCplus1, clock, !insertNOP, reset);
     // this is wired to an adder that adds 1
     wire [31:0] trash0, trash1;
     wire trash2;
@@ -84,8 +85,8 @@ module processor(
     // output of imem goes into the FD latch on the falling edge (32 bit falling edge register)
     // ALSO LATCH THE PC
     wire [31:0] FD_Instruction, FD_PC;
-    latchFE FD_Instruction0(FD_Instruction, q_imem, clock, 1'b1, reset);
-    latchFE FD_PC0(FD_PC, PC, clock, 1'b1, reset);
+    latchFE FD_Instruction0(FD_Instruction, q_imem, clock, !insertNOP, reset);
+    latchFE FD_PC0(FD_PC, PC, clock, !insertNOP, reset);
     // --------FD LATCH--------
 
     //----------DECODE----------
@@ -150,8 +151,11 @@ module processor(
     // the two read data values from the register go into the DX latch
     // latch the sign extended immediate
     wire [31:0] DX_RSVAL, DX_RTVAL, DX_PC, DX_SEI, DX_TARGET, DX_CONTROL, DX_OPCODE;
-    latchFE DX_RSVAL0(DX_RSVAL, rsVal, clock, 1'b1, reset);
-    latchFE DX_RTVAL0(DX_RTVAL, rtVal, clock, 1'b1, reset);
+    wire [31:0] NOPorRS, NOPorRT, NOPorCONTROL, NOPorOPCODE;
+    assign NOPorRS = insertNOP ? 32'b0 : rsVal;
+    assign NOPorRT = insertNOP ? 32'b0 : rtVal;
+    latchFE DX_RSVAL0(DX_RSVAL, NOPorRS, clock, 1'b1, reset);
+    latchFE DX_RTVAL0(DX_RTVAL, NOPorRT, clock, 1'b1, reset);
     latchFE DX_PC0(DX_PC, FD_PC, clock, 1'b1, reset);
     latchFE DX_SEI0(DX_SEI, signExtImm, clock, 1'b1, reset);
     latchFE DX_TARGET0(DX_TARGET, targetPAD, clock, 1'b1, reset);
@@ -171,13 +175,15 @@ module processor(
     assign controlIn[8] = BLT;
     assign controlIn[7:6] = PCmux;
     assign controlIn[2] = addi;
-    latchFE DX_CONTROL0(DX_CONTROL, controlIn, clock, 1'b1, reset);
+    assign NOPorCONTROL = insertNOP ? 32'b0 : controlIn;
+    latchFE DX_CONTROL0(DX_CONTROL, NOPorCONTROL, clock, 1'b1, reset);
     wire [31:0] latchOP;
     assign latchOP[4:0] = opcode;
     assign latchOP[9:5] = ALUop;
     assign latchOP[10] = mult;
     assign latchOP[11] = div;
-    latchFE DX_OPCODE0(DX_OPCODE, latchOP, clock, 1'b1, reset);
+    assign NOPorOPCODE = insertNOP ? 32'b0 : latchOP;
+    latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, 1'b1, reset);
     //---------DX LATCH---------
 
     //----------EXECUTE----------
@@ -185,10 +191,6 @@ module processor(
     // EITHER RT OR the sign extended immediate goes into the second port of the ALU
         // check using mux
     // ALUop control from the latch goes into the ALU op
-    // if HERE, the instruction is a mult or a div, use this value to set ctrlmult or ctrldiv to high as long as count is zero
-    // also, send this to the DX latch and make it insert a NOP for OPCODE and CONTROL to be effective on the next cycle
-    // pause PC, pause FD latch, nop should be in DX latch
-    // use tff
     wire [31:0] ALUinB, ALUOUT;
     wire isNE, isLE, ovf;
     mux_2 RTorSEI(ALUinB, DX_CONTROL[13], DX_RTVAL, DX_SEI);
@@ -197,15 +199,24 @@ module processor(
     assign DX_CONTROL[4] = isLE;
     assign DX_CONTROL[3] = ovf;
     // MULTDIV SECTION
-    wire ctrl_MD = DX_OPCODE[10] | DX_OPCODE[11];
-    wire[31:0] mdOpA, mdOpB, mdCon;
+    // if HERE, the instruction is a mult or a div, use this value to set ctrlmult or ctrldiv to high 
+    // have to send ctrl_MD to a tff to insert a nop into the DX latch
+    // FD latch should be disabled, PC should be disabled
+    wire ctrl_MD = DX_OPCODE[10] | DX_OPCODE[11]; // if it is a mult or a div, then this will be high
+    wire[31:0] mdOpA, mdOpB, mdCon, mdOP; // saving to latch later
+    // enables on these latches are the ctrl_MD because we want to latch these values on the FIRST cycle
     singlereg opA(mdOpA, DX_RSVAL, clock, ctrl_MD, 1'b0);
     singlereg opB(mdOpB, DX_RTVAL, clock, ctrl_MD, 1'b0);
     singlereg mdControl(mdCon, DX_CONTROL, clock, ctrl_MD, 1'b0);
+    singlereg mdOp(mdOP, DX_OPCODE, clock, ctrl_MD, 1'b0);
     wire [31:0] mdResult;
     wire mdEX, rdy;
-    multdiv MULTDIV(mdOpA, mdOpB, DX_OPCODE[10], DX_OPCODE[11], clock, mdResult, mdEX, rdy);
+    multdiv MULTDIV(mdOpA, mdOpB, DX_OPCODE[10], DX_OPCODE[11], clock, mdResult, mdEX, rdy); // multdiv unit
     assign DX_CONTROL[1] = mdEX;
+    wire notNOP;
+    wire enableNOP;
+    assign enableNOP = (ctrl_MD | (rdy & (mdOP[10]|mdOP[11])));
+    tff nopInsert(enableNOP, clock, insertNOP, notNOP, reset); // want to toggle on with ctrlMD and off with ready
     // MULTDIV SECTION
     //----------EXECUTE----------
 
@@ -215,8 +226,8 @@ module processor(
     // eventually will also have to latch rsout in order to do jumps TODO
     // control values also get latched other than ALUin2 and ALUop
     wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough;
-    assign ALUorMD = rdy ? mdResult : ALUOUT; // for MULTDIV
-    assign ctrlThrough = rdy ? mdCon : DX_CONTROL;
+    assign ALUorMD = (rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT; // for MULTDIV
+    assign ctrlThrough = (rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL;
     latchFE XM_RTVAL0(XM_RTVAL, DX_RTVAL, clock, 1'b1, reset);
     latchFE XM_RSVAL0(XM_RSVAL, DX_RSVAL, clock, 1'b1, reset);
     latchFE XM_ALUOUT0(XM_ALUOUT, ALUorMD, clock, 1'b1, reset); // for MULDIV
@@ -231,7 +242,7 @@ module processor(
     assign address_dmem = XM_ALUOUT;                    // O: The address of the data to get or put from/to dmem
     // data in from the output of the register file rtout goes into datain DMEM
     assign data = XM_RTVAL;                             // O: The data to write to dmem (this is actually RD because we did a mux up above)
-    assign wren = XM_CONTROL[12];                                 // O: Write enable for dmem
+    assign wren = XM_CONTROL[12];                       // O: Write enable for dmem
     wire [31:0] dmemOUT;
     assign dmemOUT = q_dmem;                            // I: The data from dmem
     // data out from dmem eventually goes into the valtoWrite mux

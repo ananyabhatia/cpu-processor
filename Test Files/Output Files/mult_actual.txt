@@ -3,8 +3,9 @@ Cycle  11: Wrote 35 into register 4
 Cycle  12: Wrote 7 into register 5
 Cycle  19: Wrote 0 into register 19
 Cycle  27: Wrote 105 into register 19
-Cycle  33: Wrote 0 into register 18
-Cycle  66: Wrote 5 into register 18
+Cycle  42: Wrote 0 into register 18
+Cycle  75: Wrote 5 into register 18
+Cycle 139: Wrote 5 into register 18
 ============== Testing Mode ==============
 Reg  0:           0
 Reg  1:           0
