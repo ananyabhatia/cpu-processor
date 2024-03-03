@@ -33,7 +33,7 @@
  *
  **/
 
-module Wrapper_tb #(parameter FILE = "md");
+module Wrapper_tb #(parameter FILE = "branch");
 
 	// FileData
 	localparam DIR = "Test Files/";

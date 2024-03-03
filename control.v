@@ -1,4 +1,4 @@
-module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI, mult, div);
+module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI, mult, div, JR);
     
     input [4:0] opcode, ALUop;
     
@@ -30,6 +30,9 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
 
     output SW;
     assign SW = sw;
+    
+    output JR;
+    assign JR = jr;
 
     output ADDI;
     assign ADDI = addi;

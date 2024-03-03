@@ -70,8 +70,8 @@ module processor(
         // (for now, but eventually it will be the output of the PCmux)
     // global reset pin wired to here
     // clk comes from clk
-    wire [31:0] PC, PCplus1;
-    latchFE PROGRAMCOUNTER(PC, PCplus1, clock, !insertNOP, reset);
+    wire [31:0] PC, PCplus1, nextPC;
+    latchFE PROGRAMCOUNTER(PC, nextPC, clock, !insertNOP, reset);
     // this is wired to an adder that adds 1
     wire [31:0] trash0, trash1;
     wire trash2;
@@ -96,10 +96,10 @@ module processor(
     wire [26:0] target;
     instdecode instructionDecode(FD_Instruction, opcode, rd, rs, rt, shamt, ALUop, immed, target);
 
-    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi, mult, div;
+    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi, mult, div, JR;
     wire [1:0] destRA, valtoWrite, PCmux;
     wire [4:0] ALUopOut;    
-    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi, mult, div);
+    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi, mult, div, JR);
 
     // remember, reg file is rising edge
     // register file read two source regs come from decode
@@ -115,8 +115,10 @@ module processor(
     // for now, this is ALWAYS the output of the ALU
     //assign ctrl_writeEnable = RWE; ASSIGN THIS IN WRITEBACK
     assign ctrl_writeReg = regtoWrite;
-    assign ctrl_readRegA = rs;
-    assign ctrl_readRegB = sw ? rd : rt; // if its a store word, we want to READ from rd (mem[RS+N] = $rd)
+    assign ctrl_readRegA = (BLT|BNE) ? rd : rs;
+    wire [4:0] rdORrt;
+    assign rdORrt = (JR | sw) ? rd : rt; // if its a store word, we want to READ from rd (mem[RS+N] = $rd)
+    assign ctrl_readRegB = (BLT|BNE) ? rs : rdORrt; // if its a store word, we want to READ from rd (mem[RS+N] = $rd)
     assign data_writeReg = valuetoWrite;
     assign rsVal = data_readRegA;
     assign rtVal = data_readRegB;
@@ -182,6 +184,7 @@ module processor(
     assign latchOP[9:5] = ALUop;
     assign latchOP[10] = mult;
     assign latchOP[11] = div;
+    assign latchOP[12] = JR;
     assign NOPorOPCODE = insertNOP ? 32'b0 : latchOP;
     latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, 1'b1, reset);
     //---------DX LATCH---------
@@ -218,6 +221,21 @@ module processor(
     assign enableNOP = (ctrl_MD | (rdy & (mdOP[10]|mdOP[11])));
     tff nopInsert(enableNOP, clock, insertNOP, notNOP, reset); // want to toggle on with ctrlMD and off with ready
     // MULTDIV SECTION
+    // BRANCHING SECTION
+    wire [31:0] trash3, trash4;
+    wire trash5;
+    wire [31:0] PCplus1plusSEI;
+    fulladder PCSEIadder(trash3, trash4, PCplus1plusSEI, trash5, DX_PC, DX_SEI, 1'b1); // PC + 1 + SEI
+    // decide what to put in the PCmux
+    // 00 = PC+1
+    // 01 = PC+1+SEI (branches) ONLY IF BRANCH TAKEN OTHERWISE PC+1
+    // 10 = target from j and jal
+    // 11 = rdVAL (from jr)
+    wire [1:0] pcSelect;
+    assign pcSelect[0] = DX_OPCODE[12] | ((DX_CONTROL[9] & isNE) | (DX_CONTROL[8] & isLE));
+    assign pcSelect[1] = DX_CONTROL[7];
+    mux_4 PCMUX(nextPC, pcSelect, PCplus1, PCplus1plusSEI, DX_TARGET, DX_RTVAL);
+    // BRANCHING SECTION
     //----------EXECUTE----------
 
     //----------XM LATCH----------
@@ -260,8 +278,12 @@ module processor(
 
     //----------WRITEBACK----------
     // mux data mem out and aluout
+    wire [31:0] trash6, trash7;
+    wire trash8;
+    wire [31:0] PCplus1W;
+    fulladder PCplus1adder(trash6, trash7, PCplus1W, trash8, MW_PC, 32'b1, 1'b0); // PC + 1
     wire [31:0] intermediatetoWriteMux, toWriteMux;
-    mux_4 writeBackMemorALU(intermediatetoWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, 32'b0, 32'b0); // eventually 10 will be PC+1
+    mux_4 writeBackMemorALU(intermediatetoWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, PCplus1W, 32'b0); // eventually 10 will be PC+1
     // add1, addi2, sub3, mul4, div5
     // 000,  100,   001,  110,  011
     // control[18:14]
