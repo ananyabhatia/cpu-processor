@@ -96,10 +96,10 @@ module processor(
     wire [26:0] target;
     instdecode instructionDecode(FD_Instruction, opcode, rd, rs, rt, shamt, ALUop, immed, target);
 
-    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi, mult, div, JR;
+    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi, mult, div, JR, bex, setx;
     wire [1:0] destRA, valtoWrite, PCmux;
     wire [4:0] ALUopOut;    
-    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi, mult, div, JR);
+    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi, mult, div, JR, bex, setx);
 
     // remember, reg file is rising edge
     // register file read two source regs come from decode
@@ -115,10 +115,13 @@ module processor(
     // for now, this is ALWAYS the output of the ALU
     //assign ctrl_writeEnable = RWE; ASSIGN THIS IN WRITEBACK
     assign ctrl_writeReg = regtoWrite;
-    assign ctrl_readRegA = (BLT|BNE) ? rd : rs;
-    wire [4:0] rdORrt;
-    assign rdORrt = (JR | sw) ? rd : rt; // if its a store word, we want to READ from rd (mem[RS+N] = $rd)
-    assign ctrl_readRegB = (BLT|BNE) ? rs : rdORrt; // if its a store word, we want to READ from rd (mem[RS+N] = $rd)
+    wire [4:0] rdORrs;
+    assign rdORrs = (BLT|BNE) ? rd : rs; // branches read from rd and rs
+    assign ctrl_readRegA = bex ? 5'd30 : rdORrs; // if it is a bex we want to compare to rstatus
+    wire [4:0] rdORrt, orRS;
+    assign rdORrt = (JR | sw) ? rd : rt; // if its a store word, we want to READ from rd (mem[RS+N] = $rd); if it is a jr, we read from rd
+    assign orRS = (BLT|BNE) ? rs : rdORrt; // branches read from rd and rs
+    assign ctrl_readRegB = (bex) ? 5'b0 : orRS; // if it is a bex we want to compare to reg 0
     assign data_writeReg = valuetoWrite;
     assign rsVal = data_readRegA;
     assign rtVal = data_readRegB;
@@ -185,6 +188,8 @@ module processor(
     assign latchOP[10] = mult;
     assign latchOP[11] = div;
     assign latchOP[12] = JR;
+    assign latchOP[13] = bex;
+    assign latchOP[14] = setx;
     assign NOPorOPCODE = insertNOP ? 32'b0 : latchOP;
     latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, 1'b1, reset);
     //---------DX LATCH---------
@@ -229,11 +234,11 @@ module processor(
     // decide what to put in the PCmux
     // 00 = PC+1
     // 01 = PC+1+SEI (branches) ONLY IF BRANCH TAKEN OTHERWISE PC+1
-    // 10 = target from j and jal
+    // 10 = target from j and jal, or bex
     // 11 = rdVAL (from jr)
     wire [1:0] pcSelect;
-    assign pcSelect[0] = DX_OPCODE[12] | ((DX_CONTROL[9] & isNE) | (DX_CONTROL[8] & isLE));
-    assign pcSelect[1] = DX_CONTROL[7];
+    assign pcSelect[0] = DX_OPCODE[12] | ((DX_CONTROL[9] & isNE) | (DX_CONTROL[8] & isLE)); // jr or branch and taken
+    assign pcSelect[1] = DX_CONTROL[7] | (DX_OPCODE[13] & isNE); // j, jal, jr, or bex and ne
     mux_4 PCMUX(nextPC, pcSelect, PCplus1, PCplus1plusSEI, DX_TARGET, DX_RTVAL);
     // BRANCHING SECTION
     //----------EXECUTE----------
@@ -243,7 +248,7 @@ module processor(
     // eventually will have to latch rtout also for store word TODO
     // eventually will also have to latch rsout in order to do jumps TODO
     // control values also get latched other than ALUin2 and ALUop
-    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough;
+    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE;
     assign ALUorMD = (rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT; // for MULTDIV
     assign ctrlThrough = (rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL;
     latchFE XM_RTVAL0(XM_RTVAL, DX_RTVAL, clock, 1'b1, reset);
@@ -251,6 +256,8 @@ module processor(
     latchFE XM_ALUOUT0(XM_ALUOUT, ALUorMD, clock, 1'b1, reset); // for MULDIV
     latchFE XM_PC0(XM_PC, DX_PC, clock, 1'b1, reset);
     latchFE XM_CONTROL0(XM_CONTROL, ctrlThrough, clock, 1'b1, reset);
+    latchFE XM_TARGET0(XM_TARGET, DX_TARGET, clock, 1'b1, reset);
+    latchFE XM_OPCODE0(XM_OPCODE, DX_OPCODE, clock, 1'b1, reset);
     //----------XM LATCH----------
 
     //----------MEMORY----------
@@ -268,11 +275,13 @@ module processor(
     //----------MEMORY----------
 
     //----------MW LATCH----------
-    wire [31:0] MW_ALUOUT, MW_PC, MW_CONTROL, MW_DMEMOUT;
+    wire [31:0] MW_ALUOUT, MW_PC, MW_CONTROL, MW_DMEMOUT, MW_TARGET, MW_OPCODE;
     latchFE MW_DMEMOUT0(MW_DMEMOUT, dmemOUT, clock, 1'b1, reset);
     latchFE MW_ALUOUT0(MW_ALUOUT, XM_ALUOUT, clock, 1'b1, reset);
     latchFE MW_PC0(MW_PC, XM_PC, clock, 1'b1, reset);
     latchFE MW_CONTROL0(MW_CONTROL, XM_CONTROL, clock, 1'b1, reset);
+    latchFE MW_TARGET0(MW_TARGET, XM_TARGET, clock, 1'b1, reset);
+    latchFE MW_OPCODE0(MW_OPCODE, XM_OPCODE, clock, 1'b1, reset);
     //----------MW LATCH----------
 
 
@@ -283,7 +292,14 @@ module processor(
     wire [31:0] PCplus1W;
     fulladder PCplus1adder(trash6, trash7, PCplus1W, trash8, MW_PC, 32'b1, 1'b0); // PC + 1
     wire [31:0] intermediatetoWriteMux, toWriteMux;
-    mux_4 writeBackMemorALU(intermediatetoWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, PCplus1W, 32'b0); // eventually 10 will be PC+1
+    // on all ALU instructions, val to write will be output of ALU
+    // on lw, it should be output from DMEM
+    // on jal, it should be PC+1
+    // 00 means output from alu
+    // 01 means output from Dmem
+    // 10 means PC+1
+    // 11 means target (setx)
+    mux_4 writeBackMemorALU(intermediatetoWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, PCplus1W, MW_TARGET); // eventually 10 will be PC+1
     // add1, addi2, sub3, mul4, div5
     // 000,  100,   001,  110,  011
     // control[18:14]
@@ -301,10 +317,10 @@ module processor(
     assign valuetoWrite = writeto30 ? writeEX : intermediatetoWriteMux;
     wire [1:0] writeRegControl;
     assign writeRegControl[0] = MW_CONTROL[19];
-    assign writeRegControl[1] = writeto30;
+    assign writeRegControl[1] = writeto30 | MW_OPCODE[14]; // exception occurred or is a setx instruction
     // 00 is rd
     // 01 is 31 (ra) jal
-    // 10 is 30 (rstatus) mult or div AND exception
+    // 10 is 30 (rstatus) mult or div AND exception OR SETX
     wire [4:0] registerToWrite;
     mux_4_5 whichRegisterWrite(registerToWrite, writeRegControl, MW_CONTROL[31:27], 5'd31, 5'd30, 5'd0);
     assign regtoWrite = registerToWrite;

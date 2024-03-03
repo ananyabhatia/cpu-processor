@@ -1,4 +1,4 @@
-module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI, mult, div, JR);
+module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI, mult, div, JR, BEX, SETX);
     
     input [4:0] opcode, ALUop;
     
@@ -28,6 +28,12 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     assign mult = ALUinst & aludecoder[6];
     assign div = ALUinst & aludecoder[7];
 
+    output BEX;
+    assign BEX = bex;
+
+    output SETX;
+    assign SETX = setx;
+
     output SW;
     assign SW = sw;
     
@@ -38,7 +44,7 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     assign ADDI = addi;
 
     output RWE;
-    assign RWE = ALUinst | lw | jal | addi;
+    assign RWE = ALUinst | lw | jal | addi | setx;
 
     // destination register
     // 00 is rd
@@ -54,11 +60,11 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     assign ALUinSEI = addi | lw | sw;
 
     output[4:0] ALUopOut;
-    assign ALUopOut[0] = (ALUop[0]) & (!addi) & (!sw) & (!lw); 
-    assign ALUopOut[1] = (ALUop[1]) & (!addi) & (!sw) & (!lw); 
-    assign ALUopOut[2] = (ALUop[2]) & (!addi) & (!sw) & (!lw); 
-    assign ALUopOut[3] = (ALUop[3]) & (!addi) & (!sw) & (!lw); 
-    assign ALUopOut[4] = (ALUop[4]) & (!addi) & (!sw) & (!lw); 
+    assign ALUopOut[0] = ((ALUop[0]) & (!addi) & (!sw) & (!lw)) | bex; 
+    assign ALUopOut[1] = (ALUop[1]) & (!addi) & (!sw) & (!lw) & (!bex); 
+    assign ALUopOut[2] = (ALUop[2]) & (!addi) & (!sw) & (!lw) & (!bex); 
+    assign ALUopOut[3] = (ALUop[3]) & (!addi) & (!sw) & (!lw) & (!bex); 
+    assign ALUopOut[4] = (ALUop[4]) & (!addi) & (!sw) & (!lw) & (!bex); 
 
     output DMWE;
     assign DMWE = sw;
@@ -69,9 +75,10 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     // 00 means output from alu
     // 01 means output from Dmem
     // 10 means PC+1
+    // 11 means target (setx)
     output [1:0] valtoWrite;
-    assign valtoWrite[0] = lw;
-    assign valtoWrite[1] = jal;
+    assign valtoWrite[0] = lw | setx;
+    assign valtoWrite[1] = jal | setx;
 
     output BNE;
     assign BNE = bne;
