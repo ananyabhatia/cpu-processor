@@ -33,7 +33,7 @@
  *
  **/
 
-module Wrapper_tb #(parameter FILE = "bexsetx");
+module Wrapper_tb #(parameter FILE = "exception");
 
 	// FileData
 	localparam DIR = "Test Files/";

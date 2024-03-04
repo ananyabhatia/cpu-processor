@@ -66,6 +66,7 @@ module processor(
     //----------FETCH----------
     // have a single register PC (32 bits) FALLING EDGE!!!!!!!!!!!!!!!!
     wire insertNOP; // MULTDIV NOP INSERTION
+    wire flushBRANCH; // BRANCH FLUSH INSTRUCTION
     // the input to this register is wired to the output of the adder 
         // (for now, but eventually it will be the output of the PCmux)
     // global reset pin wired to here
@@ -84,8 +85,9 @@ module processor(
     // --------FD LATCH--------
     // output of imem goes into the FD latch on the falling edge (32 bit falling edge register)
     // ALSO LATCH THE PC
-    wire [31:0] FD_Instruction, FD_PC;
-    latchFE FD_Instruction0(FD_Instruction, q_imem, clock, !insertNOP, reset);
+    wire [31:0] FD_Instruction, FD_PC, NOPorINST;
+    assign NOPorINST = flushBRANCH ? 32'b0 : q_imem; // FOR BRANCH FLUSHING
+    latchFE FD_Instruction0(FD_Instruction, NOPorINST, clock, !insertNOP, reset);
     latchFE FD_PC0(FD_PC, PC, clock, !insertNOP, reset);
     // --------FD LATCH--------
 
@@ -157,8 +159,8 @@ module processor(
     // latch the sign extended immediate
     wire [31:0] DX_RSVAL, DX_RTVAL, DX_PC, DX_SEI, DX_TARGET, DX_CONTROL, DX_OPCODE;
     wire [31:0] NOPorRS, NOPorRT, NOPorCONTROL, NOPorOPCODE;
-    assign NOPorRS = insertNOP ? 32'b0 : rsVal;
-    assign NOPorRT = insertNOP ? 32'b0 : rtVal;
+    assign NOPorRS = (insertNOP | flushBRANCH) ? 32'b0 : rsVal;
+    assign NOPorRT = (insertNOP | flushBRANCH) ? 32'b0 : rtVal;
     latchFE DX_RSVAL0(DX_RSVAL, NOPorRS, clock, 1'b1, reset);
     latchFE DX_RTVAL0(DX_RTVAL, NOPorRT, clock, 1'b1, reset);
     latchFE DX_PC0(DX_PC, FD_PC, clock, 1'b1, reset);
@@ -180,7 +182,7 @@ module processor(
     assign controlIn[8] = BLT;
     assign controlIn[7:6] = PCmux;
     assign controlIn[2] = addi;
-    assign NOPorCONTROL = insertNOP ? 32'b0 : controlIn;
+    assign NOPorCONTROL = (insertNOP | flushBRANCH) ? 32'b0 : controlIn;
     latchFE DX_CONTROL0(DX_CONTROL, NOPorCONTROL, clock, 1'b1, reset);
     wire [31:0] latchOP;
     assign latchOP[4:0] = opcode;
@@ -190,7 +192,7 @@ module processor(
     assign latchOP[12] = JR;
     assign latchOP[13] = bex;
     assign latchOP[14] = setx;
-    assign NOPorOPCODE = insertNOP ? 32'b0 : latchOP;
+    assign NOPorOPCODE = (insertNOP | flushBRANCH) ? 32'b0 : latchOP;
     latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, 1'b1, reset);
     //---------DX LATCH---------
 
@@ -239,6 +241,7 @@ module processor(
     wire [1:0] pcSelect;
     assign pcSelect[0] = DX_OPCODE[12] | ((DX_CONTROL[9] & isNE) | (DX_CONTROL[8] & isLE)); // jr or branch and taken
     assign pcSelect[1] = DX_CONTROL[7] | (DX_OPCODE[13] & isNE); // j, jal, jr, or bex and ne
+    assign flushBRANCH = pcSelect[0] | pcSelect[1];
     mux_4 PCMUX(nextPC, pcSelect, PCplus1, PCplus1plusSEI, DX_TARGET, DX_RTVAL);
     // BRANCHING SECTION
     //----------EXECUTE----------

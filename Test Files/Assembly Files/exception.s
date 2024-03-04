@@ -55,3 +55,32 @@ add $r20, $r20, $r30    # r20 = 202
 nop
 nop
 nop
+mul $r4, $r3, $r30     # mul ovfl --> rstatus = 4
+nop
+nop
+nop
+add $r21, $r20, $r0     # r21 = 202
+nop                     # Stalls to avoid bypassing
+nop     
+nop
+sll $r21, $r21, 3       # r21 = 1616
+nop                     # Stalls to avoid bypassing
+nop     
+nop
+add $r21, $r21, $r30    # r21 = 1620
+nop
+nop
+nop
+div $r4, $r3, $r0       # div exception --> rstatus = 5
+nop
+nop
+nop
+sll $r21, $r21, 3       # r21 = 12960
+nop                     # Stalls to avoid bypassing
+nop     
+nop
+add $r21, $r21, $r30    # r21 = 12965
+nop                     # Final check
+nop                     # $r20 = 202
+nop                     # $r21 = 12965
+nop             

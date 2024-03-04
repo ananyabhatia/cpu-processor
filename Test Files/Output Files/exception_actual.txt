@@ -11,6 +11,24 @@ Cycle  45: Wrote 25 into register 20
 Cycle  49: Wrote 2 into register 30
 Cycle  53: Wrote 200 into register 20
 Cycle  57: Wrote 202 into register 20
+Cycle  61: Wrote 4 into register 30
+Cycle  69: Wrote 4 into register 30
+Cycle  71: Wrote 1 into register 30
+Cycle  72: Wrote 1 into register 30
+Cycle  73: Wrote 1 into register 30
+Cycle  74: Wrote 1 into register 30
+Cycle  75: Wrote 1 into register 30
+Cycle  76: Wrote 1 into register 30
+Cycle  77: Wrote 1 into register 30
+Cycle  78: Wrote 0 into register 21
+Cycle  79: Wrote 1 into register 30
+Cycle  80: Wrote 1 into register 30
+Cycle  81: Wrote 1 into register 30
+Cycle  82: Wrote 1 into register 30
+Cycle  83: Wrote 1 into register 30
+Cycle  84: Wrote 1 into register 30
+Cycle  85: Wrote 1 into register 30
+Cycle  86: Wrote 0 into register 30
 ============== Testing Mode ==============
 Reg  0:           0
 Reg  1:           1
@@ -42,5 +60,5 @@ Reg 26:           0
 Reg 27:           0
 Reg 28:           0
 Reg 29:           0
-Reg 30:           2
+Reg 30:           0
 Reg 31:           0

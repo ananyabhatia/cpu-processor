@@ -60,11 +60,11 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
     assign ALUinSEI = addi | lw | sw;
 
     output[4:0] ALUopOut;
-    assign ALUopOut[0] = ((ALUop[0]) & (!addi) & (!sw) & (!lw)) | bex; 
-    assign ALUopOut[1] = (ALUop[1]) & (!addi) & (!sw) & (!lw) & (!bex); 
-    assign ALUopOut[2] = (ALUop[2]) & (!addi) & (!sw) & (!lw) & (!bex); 
-    assign ALUopOut[3] = (ALUop[3]) & (!addi) & (!sw) & (!lw) & (!bex); 
-    assign ALUopOut[4] = (ALUop[4]) & (!addi) & (!sw) & (!lw) & (!bex); 
+    assign ALUopOut[0] = ((ALUop[0]) & (!addi) & (!sw) & (!lw)) | bex | bne; 
+    assign ALUopOut[1] = (ALUop[1]) & (!addi) & (!sw) & (!lw) & (!bex) & (!bne); 
+    assign ALUopOut[2] = (ALUop[2]) & (!addi) & (!sw) & (!lw) & (!bex) & (!bne); 
+    assign ALUopOut[3] = (ALUop[3]) & (!addi) & (!sw) & (!lw) & (!bex) & (!bne); 
+    assign ALUopOut[4] = (ALUop[4]) & (!addi) & (!sw) & (!lw) & (!bex) & (!bne); 
 
     output DMWE;
     assign DMWE = sw;
