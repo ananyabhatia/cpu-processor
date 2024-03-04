@@ -251,9 +251,11 @@ module processor(
     // eventually will have to latch rtout also for store word TODO
     // eventually will also have to latch rsout in order to do jumps TODO
     // control values also get latched other than ALUin2 and ALUop
-    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE;
+    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE, XM_MDEX, multdivEX;
     assign ALUorMD = (rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT; // for MULTDIV
     assign ctrlThrough = (rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL;
+    assign multdivEX[0] = (rdy & (mdOP[10]|mdOP[11])) ? mdEX : 32'b0;
+    latchFE XM_MDEX0(XM_MDEX, multdivEX, clock, 1'b1, reset);
     latchFE XM_RTVAL0(XM_RTVAL, DX_RTVAL, clock, 1'b1, reset);
     latchFE XM_RSVAL0(XM_RSVAL, DX_RSVAL, clock, 1'b1, reset);
     latchFE XM_ALUOUT0(XM_ALUOUT, ALUorMD, clock, 1'b1, reset); // for MULDIV
@@ -278,13 +280,14 @@ module processor(
     //----------MEMORY----------
 
     //----------MW LATCH----------
-    wire [31:0] MW_ALUOUT, MW_PC, MW_CONTROL, MW_DMEMOUT, MW_TARGET, MW_OPCODE;
+    wire [31:0] MW_ALUOUT, MW_PC, MW_CONTROL, MW_DMEMOUT, MW_TARGET, MW_OPCODE, MW_MDEX;
     latchFE MW_DMEMOUT0(MW_DMEMOUT, dmemOUT, clock, 1'b1, reset);
     latchFE MW_ALUOUT0(MW_ALUOUT, XM_ALUOUT, clock, 1'b1, reset);
     latchFE MW_PC0(MW_PC, XM_PC, clock, 1'b1, reset);
     latchFE MW_CONTROL0(MW_CONTROL, XM_CONTROL, clock, 1'b1, reset);
     latchFE MW_TARGET0(MW_TARGET, XM_TARGET, clock, 1'b1, reset);
     latchFE MW_OPCODE0(MW_OPCODE, XM_OPCODE, clock, 1'b1, reset);
+    latchFE MW_MDEX0(MW_MDEX, XM_MDEX, clock, 1'b1, reset);
     //----------MW LATCH----------
 
 
@@ -304,19 +307,19 @@ module processor(
     // 11 means target (setx)
     mux_4 writeBackMemorALU(intermediatetoWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, PCplus1W, MW_TARGET); // eventually 10 will be PC+1
     // add1, addi2, sub3, mul4, div5
-    // 000,  100,   001,  110,  011
+    // 000,  100,   001,  110,  111
     // control[18:14]
     wire [2:0] EXselect;
     assign EXselect[0] = MW_CONTROL[14];
     assign EXselect[1] = MW_CONTROL[15];
     assign EXselect[2] = MW_CONTROL[16] | MW_CONTROL[2];
     wire [31:0] writeEX;
-    mux_8 checkEXCEPTION(writeEX, EXselect, 32'd1, 32'd3, 32'b0, 32'd5, 32'd2, 32'b0, 32'd4, 32'b0);
+    mux_8 checkEXCEPTION(writeEX, EXselect, 32'd1, 32'd3, 32'b0, 32'd0, 32'd2, 32'b0, 32'd4, 32'd5);
     // take output of MW latch (valtoWrite) and wire into register file
     // mux for register to write to
     // take the reg write control signal from MW latch and put it into regtoWrite
     wire writeto30;
-    assign writeto30 = MW_CONTROL[20] & (MW_CONTROL[3] | MW_CONTROL[1]);
+    assign writeto30 = MW_CONTROL[20] & (MW_CONTROL[3] | MW_MDEX[0]);
     assign valuetoWrite = writeto30 ? writeEX : intermediatetoWriteMux;
     wire [1:0] writeRegControl;
     assign writeRegControl[0] = MW_CONTROL[19];
