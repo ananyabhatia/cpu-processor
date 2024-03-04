@@ -157,7 +157,7 @@ module processor(
     //---------DX LATCH---------
     // the two read data values from the register go into the DX latch
     // latch the sign extended immediate
-    wire [31:0] DX_RSVAL, DX_RTVAL, DX_PC, DX_SEI, DX_TARGET, DX_CONTROL, DX_OPCODE;
+    wire [31:0] DX_RSVAL, DX_RTVAL, DX_PC, DX_SEI, DX_TARGET, DX_CONTROL, DX_OPCODE, DX_BYPASS;
     wire [31:0] NOPorRS, NOPorRT, NOPorCONTROL, NOPorOPCODE;
     assign NOPorRS = (insertNOP | flushBRANCH) ? 32'b0 : rsVal;
     assign NOPorRT = (insertNOP | flushBRANCH) ? 32'b0 : rtVal;
@@ -194,6 +194,10 @@ module processor(
     assign latchOP[14] = setx;
     assign NOPorOPCODE = (insertNOP | flushBRANCH) ? 32'b0 : latchOP;
     latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, 1'b1, reset);
+    wire [31:0] bypass;
+    assign bypass[4:0] = ctrl_readRegA;
+    assign bypass[9:5] = ctrl_readRegB;
+    latchFE DX_BYPASS0(DX_BYPASS, bypass, clock, 1'b1, reset);
     //---------DX LATCH---------
 
     //----------EXECUTE----------
@@ -213,12 +217,13 @@ module processor(
     // have to send ctrl_MD to a tff to insert a nop into the DX latch
     // FD latch should be disabled, PC should be disabled
     wire ctrl_MD = DX_OPCODE[10] | DX_OPCODE[11]; // if it is a mult or a div, then this will be high
-    wire[31:0] mdOpA, mdOpB, mdCon, mdOP; // saving to latch later
+    wire[31:0] mdOpA, mdOpB, mdCon, mdOP, mdByp; // saving to latch later
     // enables on these latches are the ctrl_MD because we want to latch these values on the FIRST cycle
     singlereg opA(mdOpA, DX_RSVAL, clock, ctrl_MD, 1'b0);
     singlereg opB(mdOpB, DX_RTVAL, clock, ctrl_MD, 1'b0);
     singlereg mdControl(mdCon, DX_CONTROL, clock, ctrl_MD, 1'b0);
     singlereg mdOp(mdOP, DX_OPCODE, clock, ctrl_MD, 1'b0);
+    singlereg mdBypass(mdByp, DX_BYPASS, clock, ctrl_MD, 1'b0);
     wire [31:0] mdResult;
     wire mdEX, rdy;
     multdiv MULTDIV(mdOpA, mdOpB, DX_OPCODE[10], DX_OPCODE[11], clock, mdResult, mdEX, rdy); // multdiv unit
@@ -251,10 +256,11 @@ module processor(
     // eventually will have to latch rtout also for store word TODO
     // eventually will also have to latch rsout in order to do jumps TODO
     // control values also get latched other than ALUin2 and ALUop
-    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE, XM_MDEX, multdivEX;
+    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE, XM_MDEX, multdivEX, multdivbypass, XM_BYPASS;
     assign ALUorMD = (rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT; // for MULTDIV
     assign ctrlThrough = (rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL;
     assign multdivEX[0] = (rdy & (mdOP[10]|mdOP[11])) ? mdEX : 32'b0;
+    assign multdivbypass = (rdy & (mdOP[10]|mdOP[11])) ? mdByp : DX_BYPASS;
     latchFE XM_MDEX0(XM_MDEX, multdivEX, clock, 1'b1, reset);
     latchFE XM_RTVAL0(XM_RTVAL, DX_RTVAL, clock, 1'b1, reset);
     latchFE XM_RSVAL0(XM_RSVAL, DX_RSVAL, clock, 1'b1, reset);
@@ -263,6 +269,7 @@ module processor(
     latchFE XM_CONTROL0(XM_CONTROL, ctrlThrough, clock, 1'b1, reset);
     latchFE XM_TARGET0(XM_TARGET, DX_TARGET, clock, 1'b1, reset);
     latchFE XM_OPCODE0(XM_OPCODE, DX_OPCODE, clock, 1'b1, reset);
+    latchFE XM_BYPASS0(XM_BYPASS, multdivbypass, clock, 1'b1, reset);
     //----------XM LATCH----------
 
     //----------MEMORY----------
@@ -277,10 +284,23 @@ module processor(
     assign dmemOUT = q_dmem;                            // I: The data from dmem
     // data out from dmem eventually goes into the valtoWrite mux
     // data memory out and alu out both go into the latch
+    // get which reg you are going to write to HERE so you know it for the writeback stage
+    wire writeto30;
+    assign writeto30 = XM_CONTROL[20] & (XM_CONTROL[3] | XM_MDEX[0]);
+    wire [1:0] writeRegControl;
+    assign writeRegControl[0] = XM_CONTROL[19];
+    assign writeRegControl[1] = writeto30 | XM_OPCODE[14]; // exception occurred or is a setx instruction
+    // 00 is rd
+    // 01 is 31 (ra) jal
+    // 10 is 30 (rstatus) mult or div AND exception OR SETX
+    wire [4:0] registerToWrite;
+    mux_4_5 whichRegisterWrite(registerToWrite, writeRegControl, XM_CONTROL[31:27], 5'd31, 5'd30, 5'd0);
+    assign XM_BYPASS[14:10] = registerToWrite;
+    assign XM_BYPASS[31] = writeto30;
     //----------MEMORY----------
 
     //----------MW LATCH----------
-    wire [31:0] MW_ALUOUT, MW_PC, MW_CONTROL, MW_DMEMOUT, MW_TARGET, MW_OPCODE, MW_MDEX;
+    wire [31:0] MW_ALUOUT, MW_PC, MW_CONTROL, MW_DMEMOUT, MW_TARGET, MW_OPCODE, MW_MDEX, MW_BYPASS;
     latchFE MW_DMEMOUT0(MW_DMEMOUT, dmemOUT, clock, 1'b1, reset);
     latchFE MW_ALUOUT0(MW_ALUOUT, XM_ALUOUT, clock, 1'b1, reset);
     latchFE MW_PC0(MW_PC, XM_PC, clock, 1'b1, reset);
@@ -288,6 +308,7 @@ module processor(
     latchFE MW_TARGET0(MW_TARGET, XM_TARGET, clock, 1'b1, reset);
     latchFE MW_OPCODE0(MW_OPCODE, XM_OPCODE, clock, 1'b1, reset);
     latchFE MW_MDEX0(MW_MDEX, XM_MDEX, clock, 1'b1, reset);
+    latchFE MW_BYPASS0(MW_BYPASS, XM_BYPASS, clock, 1'b1, reset);
     //----------MW LATCH----------
 
 
@@ -318,18 +339,8 @@ module processor(
     // take output of MW latch (valtoWrite) and wire into register file
     // mux for register to write to
     // take the reg write control signal from MW latch and put it into regtoWrite
-    wire writeto30;
-    assign writeto30 = MW_CONTROL[20] & (MW_CONTROL[3] | MW_MDEX[0]);
-    assign valuetoWrite = writeto30 ? writeEX : intermediatetoWriteMux;
-    wire [1:0] writeRegControl;
-    assign writeRegControl[0] = MW_CONTROL[19];
-    assign writeRegControl[1] = writeto30 | MW_OPCODE[14]; // exception occurred or is a setx instruction
-    // 00 is rd
-    // 01 is 31 (ra) jal
-    // 10 is 30 (rstatus) mult or div AND exception OR SETX
-    wire [4:0] registerToWrite;
-    mux_4_5 whichRegisterWrite(registerToWrite, writeRegControl, MW_CONTROL[31:27], 5'd31, 5'd30, 5'd0);
-    assign regtoWrite = registerToWrite;
+    assign valuetoWrite = MW_BYPASS[31] ? writeEX : intermediatetoWriteMux; // writeto30
+    assign regtoWrite = MW_BYPASS[14:10];
     assign ctrl_writeEnable = MW_CONTROL[21];
     // nothing left to latch
     //----------WRITEBACK----------
