@@ -62,7 +62,11 @@ module processor(
 	input [31:0] data_readRegA, data_readRegB;
 
 	/* YOUR CODE STARTS HERE */
-
+    // BYPASSING
+    wire stall, DMEMdata;
+    wire [1:0] bypALUinA, bypALUinB;
+    wire [31:0] DXB, XMB, MWB;
+    bypass bypasser(stall, bypALUinA, bypALUinB, DMEMdata, DXB, XMB, MWB);
     //----------FETCH----------
     // have a single register PC (32 bits) FALLING EDGE!!!!!!!!!!!!!!!!
     wire insertNOP; // MULTDIV NOP INSERTION
@@ -83,32 +87,27 @@ module processor(
     // ---------FETCH---------
 
     // --------FD LATCH--------
-    // output of imem goes into the FD latch on the falling edge (32 bit falling edge register)
-    // ALSO LATCH THE PC
     wire [31:0] FD_Instruction, FD_PC, NOPorINST;
     assign NOPorINST = flushBRANCH ? 32'b0 : q_imem; // FOR BRANCH FLUSHING
-    latchFE FD_Instruction0(FD_Instruction, NOPorINST, clock, !insertNOP, reset);
-    latchFE FD_PC0(FD_PC, PC, clock, !insertNOP, reset);
+    latchFE FD_Instruction0(FD_Instruction, NOPorINST, clock, !insertNOP, reset); // output of imem goes into the FD latch on the falling edge (32 bit falling edge register)
+    latchFE FD_PC0(FD_PC, PC, clock, !insertNOP, reset);     // ALSO LATCH THE PC
     // --------FD LATCH--------
 
     //----------DECODE----------
-    // output of the FD latch goes into instruction decode and control
     wire [4:0] opcode, rd, rs, rt, shamt, ALUop;
     wire [16:0] immed;
     wire [26:0] target;
-    instdecode instructionDecode(FD_Instruction, opcode, rd, rs, rt, shamt, ALUop, immed, target);
-
-    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi, mult, div, JR, bex, setx;
+    instdecode instructionDecode(FD_Instruction, opcode, rd, rs, rt, shamt, ALUop, immed, target); // output of the FD latch goes into instruction decode and control
+    wire RWE, ALUinSEI, DMWE, BNE, BLT, sw, addi, mult, div, JR, bex, setx, lw;
     wire [1:0] destRA, valtoWrite, PCmux;
     wire [4:0] ALUopOut;    
-    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi, mult, div, JR, bex, setx);
-
+    control masterControl(opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, sw, addi, mult, div, JR, bex, setx, lw);
     // remember, reg file is rising edge
     // register file read two source regs come from decode
     // register file write comes from NOT THIS INSTRUCTION
     // comes from the instruction that is currently in WRITEBACK
-    wire [4:0] regtoWrite; // TODO: WRITEBACK
-    wire [31:0] valuetoWrite; // TODO: WRITEBACK
+    wire [4:0] regtoWrite; // WRITEBACK
+    wire [31:0] valuetoWrite; // WRITEBACK
     // RWE comes from control
     // clk comes from clk
     // reset wired here
@@ -197,7 +196,10 @@ module processor(
     wire [31:0] bypass;
     assign bypass[4:0] = ctrl_readRegA;
     assign bypass[9:5] = ctrl_readRegB;
+    assign bypass[30] = sw;
+    assign bypass[29] = lw;
     latchFE DX_BYPASS0(DX_BYPASS, bypass, clock, 1'b1, reset);
+    assign DXB = DX_BYPASS;
     //---------DX LATCH---------
 
     //----------EXECUTE----------
@@ -205,10 +207,12 @@ module processor(
     // EITHER RT OR the sign extended immediate goes into the second port of the ALU
         // check using mux
     // ALUop control from the latch goes into the ALU op
-    wire [31:0] ALUinB, ALUOUT;
+    wire [31:0] ALUinB, ALUOUT, ALUinBbypass, ALUinA;
     wire isNE, isLE, ovf;
-    mux_2 RTorSEI(ALUinB, DX_CONTROL[13], DX_RTVAL, DX_SEI);
-    alu ALUYAY(DX_RSVAL, ALUinB, DX_CONTROL[18:14], DX_CONTROL[26:22], ALUOUT, isNE, isLE, ovf);
+    mux_4 bypassA(ALUinA, bypALUinA, DX_RSVAL, XM_ALUOUT, valuetoWrite, 32'b0);
+    mux_4 bypassB(ALUinBbypass, bypALUinB, DX_RTVAL, XM_ALUOUT, valuetoWrite, 32'b0);
+    mux_2 RTorSEI(ALUinB, DX_CONTROL[13], ALUinBbypass, DX_SEI);
+    alu ALUYAY(ALUinA, ALUinB, DX_CONTROL[18:14], DX_CONTROL[26:22], ALUOUT, isNE, isLE, ovf);
     assign DX_CONTROL[5] = isNE;
     assign DX_CONTROL[4] = isLE;
     assign DX_CONTROL[3] = ovf;
@@ -270,6 +274,7 @@ module processor(
     latchFE XM_TARGET0(XM_TARGET, DX_TARGET, clock, 1'b1, reset);
     latchFE XM_OPCODE0(XM_OPCODE, DX_OPCODE, clock, 1'b1, reset);
     latchFE XM_BYPASS0(XM_BYPASS, multdivbypass, clock, 1'b1, reset);
+    assign XMB = XM_BYPASS;
     //----------XM LATCH----------
 
     //----------MEMORY----------
@@ -309,6 +314,7 @@ module processor(
     latchFE MW_OPCODE0(MW_OPCODE, XM_OPCODE, clock, 1'b1, reset);
     latchFE MW_MDEX0(MW_MDEX, XM_MDEX, clock, 1'b1, reset);
     latchFE MW_BYPASS0(MW_BYPASS, XM_BYPASS, clock, 1'b1, reset);
+    assign MWB = MW_BYPASS;
     //----------MW LATCH----------
 
 

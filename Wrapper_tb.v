@@ -33,7 +33,7 @@
  *
  **/
 
-module Wrapper_tb #(parameter FILE = "exception");
+module Wrapper_tb #(parameter FILE = "memory");
 
 	// FileData
 	localparam DIR = "Test Files/";

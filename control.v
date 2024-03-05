@@ -1,11 +1,11 @@
-module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI, mult, div, JR, BEX, SETX);
+module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite, BNE, BLT, PCmux, SW, ADDI, mult, div, JR, BEX, SETX, LW);
     
     input [4:0] opcode, ALUop;
     
     wire [31:0] decoderOut;
     decoder32 bab(decoderOut, opcode, 1'b1);
 
-    wire ALUinst, j, bne, jal, jr, addi, blt, sw, lw, bex, setx;
+    wire ALUinst, j, bne, jal, jr, addi, blt, sw, lw, bex, setx, LW;
 
     assign ALUinst = decoderOut[0];
     assign j = decoderOut[1];
@@ -36,6 +36,9 @@ module control (opcode, ALUop, RWE, destRA, ALUopOut, ALUinSEI, DMWE, valtoWrite
 
     output SW;
     assign SW = sw;
+
+    output LW;
+    assign LW = lw;
     
     output JR;
     assign JR = jr;
