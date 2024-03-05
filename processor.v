@@ -283,7 +283,7 @@ module processor(
     // DMWE from control
     assign address_dmem = XM_ALUOUT;                    // O: The address of the data to get or put from/to dmem
     // data in from the output of the register file rtout goes into datain DMEM
-    assign data = XM_RTVAL;                             // O: The data to write to dmem (this is actually RD because we did a mux up above)
+    assign data = DMEMdata ? valuetoWrite : XM_RTVAL;                             // O: The data to write to dmem (this is actually RD because we did a mux up above)
     assign wren = XM_CONTROL[12];                       // O: Write enable for dmem
     wire [31:0] dmemOUT;
     assign dmemOUT = q_dmem;                            // I: The data from dmem

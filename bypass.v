@@ -15,4 +15,6 @@ module bypass(stall, ALUinA, ALUinB, DMEMdata, DXB, XMB, MWB);
 
     assign ALUinB[0] = (DXB[9:5]===XMB[14:10]) & (!(DXB[30] & XMB[30])) & (DXB[9:5]!==5'b0);
     assign ALUinB[1] = (DXB[9:5]===MWB[14:10]) & (!(DXB[30] & MWB[30])) & (DXB[9:5]!==5'b0);
+
+    assign DMEMdata = (XMB[30]) & (XMB[9:5]===MWB[14:10]) ;
 endmodule
