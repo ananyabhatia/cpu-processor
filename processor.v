@@ -209,8 +209,8 @@ module processor(
     // ALUop control from the latch goes into the ALU op
     wire [31:0] ALUinB, ALUOUT, ALUinBbypass, ALUinA;
     wire isNE, isLE, ovf;
-    mux_4 bypassA(ALUinA, bypALUinA, DX_RSVAL, XM_ALUOUT, valuetoWrite, 32'b0);
-    mux_4 bypassB(ALUinBbypass, bypALUinB, DX_RTVAL, XM_ALUOUT, valuetoWrite, 32'b0);
+    mux_4 bypassA(ALUinA, bypALUinA, DX_RSVAL, XM_TOWRITE, valuetoWrite, XM_TOWRITE);
+    mux_4 bypassB(ALUinBbypass, bypALUinB, DX_RTVAL, XM_TOWRITE, valuetoWrite, XM_TOWRITE);
     mux_2 RTorSEI(ALUinB, DX_CONTROL[13], ALUinBbypass, DX_SEI);
     alu ALUYAY(ALUinA, ALUinB, DX_CONTROL[18:14], DX_CONTROL[26:22], ALUOUT, isNE, isLE, ovf);
     assign DX_CONTROL[5] = isNE;
@@ -302,28 +302,11 @@ module processor(
     mux_4_5 whichRegisterWrite(registerToWrite, writeRegControl, XM_CONTROL[31:27], 5'd31, 5'd30, 5'd0);
     assign XM_BYPASS[14:10] = registerToWrite;
     assign XM_BYPASS[31] = writeto30;
-    //----------MEMORY----------
-
-    //----------MW LATCH----------
-    wire [31:0] MW_ALUOUT, MW_PC, MW_CONTROL, MW_DMEMOUT, MW_TARGET, MW_OPCODE, MW_MDEX, MW_BYPASS;
-    latchFE MW_DMEMOUT0(MW_DMEMOUT, dmemOUT, clock, 1'b1, reset);
-    latchFE MW_ALUOUT0(MW_ALUOUT, XM_ALUOUT, clock, 1'b1, reset);
-    latchFE MW_PC0(MW_PC, XM_PC, clock, 1'b1, reset);
-    latchFE MW_CONTROL0(MW_CONTROL, XM_CONTROL, clock, 1'b1, reset);
-    latchFE MW_TARGET0(MW_TARGET, XM_TARGET, clock, 1'b1, reset);
-    latchFE MW_OPCODE0(MW_OPCODE, XM_OPCODE, clock, 1'b1, reset);
-    latchFE MW_MDEX0(MW_MDEX, XM_MDEX, clock, 1'b1, reset);
-    latchFE MW_BYPASS0(MW_BYPASS, XM_BYPASS, clock, 1'b1, reset);
-    assign MWB = MW_BYPASS;
-    //----------MW LATCH----------
-
-
-    //----------WRITEBACK----------
     // mux data mem out and aluout
     wire [31:0] trash6, trash7;
     wire trash8;
     wire [31:0] PCplus1W;
-    fulladder PCplus1adder(trash6, trash7, PCplus1W, trash8, MW_PC, 32'b1, 1'b0); // PC + 1
+    fulladder PCplus1adder(trash6, trash7, PCplus1W, trash8, XM_PC, 32'b1, 1'b0); // PC + 1
     wire [31:0] intermediatetoWriteMux, toWriteMux;
     // on all ALU instructions, val to write will be output of ALU
     // on lw, it should be output from DMEM
@@ -332,20 +315,63 @@ module processor(
     // 01 means output from Dmem
     // 10 means PC+1
     // 11 means target (setx)
-    mux_4 writeBackMemorALU(intermediatetoWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, PCplus1W, MW_TARGET); // eventually 10 will be PC+1
+    mux_4 writeBackMemorALU(intermediatetoWriteMux, XM_CONTROL[11:10], XM_ALUOUT, 32'b0, PCplus1W, XM_TARGET); // eventually 10 will be PC+1
     // add1, addi2, sub3, mul4, div5
     // 000,  100,   001,  110,  111
     // control[18:14]
     wire [2:0] EXselect;
-    assign EXselect[0] = MW_CONTROL[14];
-    assign EXselect[1] = MW_CONTROL[15];
-    assign EXselect[2] = MW_CONTROL[16] | MW_CONTROL[2];
+    assign EXselect[0] = XM_CONTROL[14];
+    assign EXselect[1] = XM_CONTROL[15];
+    assign EXselect[2] = XM_CONTROL[16] | XM_CONTROL[2];
     wire [31:0] writeEX;
     mux_8 checkEXCEPTION(writeEX, EXselect, 32'd1, 32'd3, 32'b0, 32'd0, 32'd2, 32'b0, 32'd4, 32'd5);
+    wire [31:0] XM_TOWRITE;
+    assign XM_TOWRITE = writeto30 ? writeEX : intermediatetoWriteMux;
+    //----------MEMORY----------
+
+    //----------MW LATCH----------
+    wire [31:0] MW_ALUOUT, MW_PC, MW_CONTROL, MW_DMEMOUT, MW_TARGET, MW_OPCODE, MW_MDEX, MW_BYPASS, MW_TOWRITE;
+    latchFE MW_DMEMOUT0(MW_DMEMOUT, dmemOUT, clock, 1'b1, reset);
+    latchFE MW_ALUOUT0(MW_ALUOUT, XM_ALUOUT, clock, 1'b1, reset);
+    latchFE MW_PC0(MW_PC, XM_PC, clock, 1'b1, reset);
+    latchFE MW_CONTROL0(MW_CONTROL, XM_CONTROL, clock, 1'b1, reset);
+    latchFE MW_TARGET0(MW_TARGET, XM_TARGET, clock, 1'b1, reset);
+    latchFE MW_OPCODE0(MW_OPCODE, XM_OPCODE, clock, 1'b1, reset);
+    latchFE MW_MDEX0(MW_MDEX, XM_MDEX, clock, 1'b1, reset);
+    latchFE MW_BYPASS0(MW_BYPASS, XM_BYPASS, clock, 1'b1, reset);
+    latchFE MW_TOWRITE0(MW_TOWRITE, XM_TOWRITE, clock, 1'b1, reset);
+    assign MWB = MW_BYPASS;
+    //----------MW LATCH----------
+
+
+    //----------WRITEBACK----------
+    // // mux data mem out and aluout
+    // wire [31:0] trash6, trash7;
+    // wire trash8;
+    // wire [31:0] PCplus1W;
+    // fulladder PCplus1adder(trash6, trash7, PCplus1W, trash8, MW_PC, 32'b1, 1'b0); // PC + 1
+    // wire [31:0] intermediatetoWriteMux, toWriteMux;
+    // // on all ALU instructions, val to write will be output of ALU
+    // // on lw, it should be output from DMEM
+    // // on jal, it should be PC+1
+    // // 00 means output from alu
+    // // 01 means output from Dmem
+    // // 10 means PC+1
+    // // 11 means target (setx)
+    // mux_4 writeBackMemorALU(intermediatetoWriteMux, MW_CONTROL[11:10], MW_ALUOUT, MW_DMEMOUT, PCplus1W, MW_TARGET); // eventually 10 will be PC+1
+    // // add1, addi2, sub3, mul4, div5
+    // // 000,  100,   001,  110,  111
+    // // control[18:14]
+    // wire [2:0] EXselect;
+    // assign EXselect[0] = MW_CONTROL[14];
+    // assign EXselect[1] = MW_CONTROL[15];
+    // assign EXselect[2] = MW_CONTROL[16] | MW_CONTROL[2];
+    // wire [31:0] writeEX;
+    // mux_8 checkEXCEPTION(writeEX, EXselect, 32'd1, 32'd3, 32'b0, 32'd0, 32'd2, 32'b0, 32'd4, 32'd5);
     // take output of MW latch (valtoWrite) and wire into register file
     // mux for register to write to
     // take the reg write control signal from MW latch and put it into regtoWrite
-    assign valuetoWrite = MW_BYPASS[31] ? writeEX : intermediatetoWriteMux; // writeto30
+    assign valuetoWrite = ((!MW_CONTROL[11])&(MW_CONTROL[10])) ? MW_DMEMOUT : MW_TOWRITE; // writeto30
     assign regtoWrite = MW_BYPASS[14:10];
     assign ctrl_writeEnable = MW_CONTROL[21];
     // nothing left to latch
