@@ -198,6 +198,7 @@ module processor(
     assign bypass[9:5] = ctrl_readRegB;
     assign bypass[30] = sw;
     assign bypass[29] = lw;
+    assign bypass[18] = RWE;
     latchFE DX_BYPASS0(DX_BYPASS, bypass, clock, !stall, reset);
     assign DXB = DX_BYPASS;
     //---------DX LATCH---------

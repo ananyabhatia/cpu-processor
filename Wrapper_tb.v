@@ -33,7 +33,7 @@
  *
  **/
 
-module Wrapper_tb #(parameter FILE = "bypex");
+module Wrapper_tb #(parameter FILE = "bypbranch");
 
 	// FileData
 	localparam DIR = "Test Files/";

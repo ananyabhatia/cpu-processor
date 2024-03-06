@@ -6,15 +6,17 @@ module bypass(stall, ALUinA, ALUinB, DMEMdata, DXB, XMB, MWB);
     // 30 = sw
     // 29 = lw
     // 31 writeto30
+    // 18 is RWE
     input [31:0] DXB, XMB, MWB;
     output [1:0] ALUinA, ALUinB;
     output stall, DMEMdata;
 
-    assign ALUinA[0] = (DXB[4:0]===XMB[14:10]) & (!(DXB[30] & XMB[30])) & (DXB[4:0]!==5'b0);
-    assign ALUinA[1] = (DXB[4:0]===MWB[14:10]) & (!(DXB[30] & MWB[30])) & (DXB[4:0]!==5'b0);
+    // we don't want to bypass if the instructoin doesn't have write enable
+    assign ALUinA[0] = (DXB[4:0]===XMB[14:10]) & (!(DXB[30] & XMB[30])) & (DXB[4:0]!==5'b0) & XMB[18];
+    assign ALUinA[1] = (DXB[4:0]===MWB[14:10]) & (!(DXB[30] & MWB[30])) & (DXB[4:0]!==5'b0) & MWB[18];
 
-    assign ALUinB[0] = (DXB[9:5]===XMB[14:10]) & (!(DXB[30] & XMB[30])) & (DXB[9:5]!==5'b0);
-    assign ALUinB[1] = (DXB[9:5]===MWB[14:10]) & (!(DXB[30] & MWB[30])) & (DXB[9:5]!==5'b0);
+    assign ALUinB[0] = (DXB[9:5]===XMB[14:10]) & (!(DXB[30] & XMB[30])) & (DXB[9:5]!==5'b0) & XMB[18];
+    assign ALUinB[1] = (DXB[9:5]===MWB[14:10]) & (!(DXB[30] & MWB[30])) & (DXB[9:5]!==5'b0) & MWB[18];
 
     assign DMEMdata = (XMB[30]) & (XMB[9:5]===MWB[14:10]);
     // if the instruction currently in the data mem phase is a load
