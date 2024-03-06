@@ -76,7 +76,7 @@ module processor(
     // global reset pin wired to here
     // clk comes from clk
     wire [31:0] PC, PCplus1, nextPC;
-    latchFE PROGRAMCOUNTER(PC, nextPC, clock, !insertNOP, reset);
+    latchFE PROGRAMCOUNTER(PC, nextPC, clock, (!insertNOP & !stall), reset);
     // this is wired to an adder that adds 1
     wire [31:0] trash0, trash1;
     wire trash2;
@@ -89,8 +89,8 @@ module processor(
     // --------FD LATCH--------
     wire [31:0] FD_Instruction, FD_PC, NOPorINST;
     assign NOPorINST = flushBRANCH ? 32'b0 : q_imem; // FOR BRANCH FLUSHING
-    latchFE FD_Instruction0(FD_Instruction, NOPorINST, clock, !insertNOP, reset); // output of imem goes into the FD latch on the falling edge (32 bit falling edge register)
-    latchFE FD_PC0(FD_PC, PC, clock, !insertNOP, reset);     // ALSO LATCH THE PC
+    latchFE FD_Instruction0(FD_Instruction, NOPorINST, clock, (!insertNOP & !stall), reset); // output of imem goes into the FD latch on the falling edge (32 bit falling edge register)
+    latchFE FD_PC0(FD_PC, PC, clock, (!insertNOP & !stall), reset);     // ALSO LATCH THE PC
     // --------FD LATCH--------
 
     //----------DECODE----------
@@ -160,11 +160,11 @@ module processor(
     wire [31:0] NOPorRS, NOPorRT, NOPorCONTROL, NOPorOPCODE;
     assign NOPorRS = (insertNOP | flushBRANCH) ? 32'b0 : rsVal;
     assign NOPorRT = (insertNOP | flushBRANCH) ? 32'b0 : rtVal;
-    latchFE DX_RSVAL0(DX_RSVAL, NOPorRS, clock, 1'b1, reset);
-    latchFE DX_RTVAL0(DX_RTVAL, NOPorRT, clock, 1'b1, reset);
-    latchFE DX_PC0(DX_PC, FD_PC, clock, 1'b1, reset);
-    latchFE DX_SEI0(DX_SEI, signExtImm, clock, 1'b1, reset);
-    latchFE DX_TARGET0(DX_TARGET, targetPAD, clock, 1'b1, reset);
+    latchFE DX_RSVAL0(DX_RSVAL, NOPorRS, clock, !stall, reset);
+    latchFE DX_RTVAL0(DX_RTVAL, NOPorRT, clock, !stall, reset);
+    latchFE DX_PC0(DX_PC, FD_PC, clock, !stall, reset);
+    latchFE DX_SEI0(DX_SEI, signExtImm, clock, !stall, reset);
+    latchFE DX_TARGET0(DX_TARGET, targetPAD, clock, !stall, reset);
     // ALL of the control signals also go into the DX latch and the instruction decode
         // need to latch rd (5), shamt (5), RWE (1), destRA (2), ALUopOut (5), ALUinSEI (1), DMWE (1), valtoWrite (2), BNE (1), BLT (1), PCmux (2)
         // 5 + 5 + 1 + 2 + 5 + 1 + 1 + 2 + 1 + 1 + 2
@@ -182,7 +182,7 @@ module processor(
     assign controlIn[7:6] = PCmux;
     assign controlIn[2] = addi;
     assign NOPorCONTROL = (insertNOP | flushBRANCH) ? 32'b0 : controlIn;
-    latchFE DX_CONTROL0(DX_CONTROL, NOPorCONTROL, clock, 1'b1, reset);
+    latchFE DX_CONTROL0(DX_CONTROL, NOPorCONTROL, clock, !stall, reset);
     wire [31:0] latchOP;
     assign latchOP[4:0] = opcode;
     assign latchOP[9:5] = ALUop;
@@ -192,13 +192,13 @@ module processor(
     assign latchOP[13] = bex;
     assign latchOP[14] = setx;
     assign NOPorOPCODE = (insertNOP | flushBRANCH) ? 32'b0 : latchOP;
-    latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, 1'b1, reset);
+    latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, !stall, reset);
     wire [31:0] bypass;
     assign bypass[4:0] = ctrl_readRegA;
     assign bypass[9:5] = ctrl_readRegB;
     assign bypass[30] = sw;
     assign bypass[29] = lw;
-    latchFE DX_BYPASS0(DX_BYPASS, bypass, clock, 1'b1, reset);
+    latchFE DX_BYPASS0(DX_BYPASS, bypass, clock, !stall, reset);
     assign DXB = DX_BYPASS;
     //---------DX LATCH---------
 
@@ -223,8 +223,11 @@ module processor(
     wire ctrl_MD = DX_OPCODE[10] | DX_OPCODE[11]; // if it is a mult or a div, then this will be high
     wire[31:0] mdOpA, mdOpB, mdCon, mdOP, mdByp; // saving to latch later
     // enables on these latches are the ctrl_MD because we want to latch these values on the FIRST cycle
-    singlereg opA(mdOpA, DX_RSVAL, clock, ctrl_MD, 1'b0);
-    singlereg opB(mdOpB, DX_RTVAL, clock, ctrl_MD, 1'b0);
+    wire [31:0] MDinA, MDinB;
+    mux_4 bypassAMD(MDinA, bypALUinA, DX_RSVAL, XM_TOWRITE, valuetoWrite, XM_TOWRITE);
+    mux_4 bypassBMD(MDinB, bypALUinB, DX_RTVAL, XM_TOWRITE, valuetoWrite, XM_TOWRITE);
+    singlereg opA(mdOpA, MDinA, clock, ctrl_MD, 1'b0);
+    singlereg opB(mdOpB, MDinB, clock, ctrl_MD, 1'b0);
     singlereg mdControl(mdCon, DX_CONTROL, clock, ctrl_MD, 1'b0);
     singlereg mdOp(mdOP, DX_OPCODE, clock, ctrl_MD, 1'b0);
     singlereg mdBypass(mdByp, DX_BYPASS, clock, ctrl_MD, 1'b0);
@@ -261,10 +264,10 @@ module processor(
     // eventually will also have to latch rsout in order to do jumps TODO
     // control values also get latched other than ALUin2 and ALUop
     wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE, XM_MDEX, multdivEX, multdivbypass, XM_BYPASS;
-    assign ALUorMD = (rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT; // for MULTDIV
-    assign ctrlThrough = (rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL;
-    assign multdivEX[0] = (rdy & (mdOP[10]|mdOP[11])) ? mdEX : 32'b0;
-    assign multdivbypass = (rdy & (mdOP[10]|mdOP[11])) ? mdByp : DX_BYPASS;
+    assign ALUorMD = stall ? 32'b0 : ((rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT); // for MULTDIV
+    assign ctrlThrough = stall ? 32'b0 : ((rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL);
+    assign multdivEX[0] = stall ? 32'b0 : ((rdy & (mdOP[10]|mdOP[11])) ? mdEX : 32'b0);
+    assign multdivbypass = stall ? 32'b0 : ((rdy & (mdOP[10]|mdOP[11])) ? mdByp : DX_BYPASS);
     latchFE XM_MDEX0(XM_MDEX, multdivEX, clock, 1'b1, reset);
     latchFE XM_RTVAL0(XM_RTVAL, DX_RTVAL, clock, 1'b1, reset);
     latchFE XM_RSVAL0(XM_RSVAL, DX_RSVAL, clock, 1'b1, reset);
