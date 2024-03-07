@@ -1,4 +1,4 @@
-module bypass(stall, ALUinA, ALUinB, DMEMdata, jrByp, DXB, XMB, MWB);
+module bypass(stall, ALUinA, ALUinB, DMEMdata, jrByp, FDB, DXB, XMB, MWB);
     // bypass latch format:
     // 4:0 = readregA
     // 9:5 = readregB
@@ -8,7 +8,9 @@ module bypass(stall, ALUinA, ALUinB, DMEMdata, jrByp, DXB, XMB, MWB);
     // 31 writeto30
     // 18 is RWE
     // 19 is jr
-    input [31:0] DXB, XMB, MWB;
+    // 20 is bne or blt
+    // 25:21 is DXB regwrite
+    input [31:0] FDB, DXB, XMB, MWB;
     output [1:0] ALUinA, ALUinB, jrByp;
     output stall, DMEMdata;
 
@@ -24,7 +26,8 @@ module bypass(stall, ALUinA, ALUinB, DMEMdata, jrByp, DXB, XMB, MWB);
     // and we want to use the value in the reg we are loading to immediately
     // in either input into the ALU
     // AND the instruction that wants to use it is not a store
-    assign stall = XMB[29] && ((DXB[4:0]===XMB[14:10]) | (DXB[9:5]===XMB[14:10])) & (!DXB[30]);
+    //assign stall = XMB[29] & ((DXB[4:0]===XMB[14:10]) | (DXB[9:5]===XMB[14:10])) & (!DXB[30]);
+    assign stall = DXB[29] & ((FDB[4:0]===DXB[25:21]) | (FDB[9:5]===DXB[25:21])) & (!FDB[30]);
     assign jrByp[0] = (XMB[14:10] === 5'd31) & DXB[19];
     assign jrByp[1] = (MWB[14:10] === 5'd31) & DXB[19];
 endmodule

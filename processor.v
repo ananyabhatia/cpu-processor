@@ -65,8 +65,8 @@ module processor(
     // BYPASSING
     wire stall, DMEMdata;
     wire [1:0] bypALUinA, bypALUinB, jrByp;
-    wire [31:0] DXB, XMB, MWB;
-    bypass bypasser(stall, bypALUinA, bypALUinB, DMEMdata, jrByp, DXB, XMB, MWB);
+    wire [31:0] DXB, XMB, MWB, FDB;
+    bypass bypasser(stall, bypALUinA, bypALUinB, DMEMdata, jrByp, FDB, DXB, XMB, MWB);
     //----------FETCH----------
     // have a single register PC (32 bits) FALLING EDGE!!!!!!!!!!!!!!!!
     wire insertNOP; // MULTDIV NOP INSERTION
@@ -158,13 +158,13 @@ module processor(
     // latch the sign extended immediate
     wire [31:0] DX_RSVAL, DX_RTVAL, DX_PC, DX_SEI, DX_TARGET, DX_CONTROL, DX_OPCODE, DX_BYPASS;
     wire [31:0] NOPorRS, NOPorRT, NOPorCONTROL, NOPorOPCODE;
-    assign NOPorRS = (insertNOP | flushBRANCH) ? 32'b0 : rsVal;
-    assign NOPorRT = (insertNOP | flushBRANCH) ? 32'b0 : rtVal;
-    latchFE DX_RSVAL0(DX_RSVAL, NOPorRS, clock, !stall, reset);
-    latchFE DX_RTVAL0(DX_RTVAL, NOPorRT, clock, !stall, reset);
-    latchFE DX_PC0(DX_PC, FD_PC, clock, !stall, reset);
-    latchFE DX_SEI0(DX_SEI, signExtImm, clock, !stall, reset);
-    latchFE DX_TARGET0(DX_TARGET, targetPAD, clock, !stall, reset);
+    assign NOPorRS = (stall | insertNOP | flushBRANCH) ? 32'b0 : rsVal;
+    assign NOPorRT = (stall | insertNOP | flushBRANCH) ? 32'b0 : rtVal;
+    latchFE DX_RSVAL0(DX_RSVAL, NOPorRS, clock, 1'b1, reset);
+    latchFE DX_RTVAL0(DX_RTVAL, NOPorRT, clock, 1'b1, reset);
+    latchFE DX_PC0(DX_PC, FD_PC, clock, 1'b1, reset);
+    latchFE DX_SEI0(DX_SEI, signExtImm, clock, 1'b1, reset);
+    latchFE DX_TARGET0(DX_TARGET, targetPAD, clock, 1'b1, reset);
     // ALL of the control signals also go into the DX latch and the instruction decode
         // need to latch rd (5), shamt (5), RWE (1), destRA (2), ALUopOut (5), ALUinSEI (1), DMWE (1), valtoWrite (2), BNE (1), BLT (1), PCmux (2)
         // 5 + 5 + 1 + 2 + 5 + 1 + 1 + 2 + 1 + 1 + 2
@@ -181,8 +181,8 @@ module processor(
     assign controlIn[8] = BLT;
     assign controlIn[7:6] = PCmux;
     assign controlIn[2] = addi;
-    assign NOPorCONTROL = (insertNOP | flushBRANCH) ? 32'b0 : controlIn;
-    latchFE DX_CONTROL0(DX_CONTROL, NOPorCONTROL, clock, !stall, reset);
+    assign NOPorCONTROL = (stall | insertNOP | flushBRANCH) ? 32'b0 : controlIn;
+    latchFE DX_CONTROL0(DX_CONTROL, NOPorCONTROL, clock, 1'b1, reset);
     wire [31:0] latchOP;
     assign latchOP[4:0] = opcode;
     assign latchOP[9:5] = ALUop;
@@ -191,8 +191,8 @@ module processor(
     assign latchOP[12] = JR;
     assign latchOP[13] = bex;
     assign latchOP[14] = setx;
-    assign NOPorOPCODE = (insertNOP | flushBRANCH) ? 32'b0 : latchOP;
-    latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, !stall, reset);
+    assign NOPorOPCODE = (stall | insertNOP | flushBRANCH) ? 32'b0 : latchOP;
+    latchFE DX_OPCODE0(DX_OPCODE, NOPorOPCODE, clock, 1'b1, reset);
     wire [31:0] bypass;
     assign bypass[4:0] = ctrl_readRegA;
     assign bypass[9:5] = ctrl_readRegB;
@@ -200,7 +200,15 @@ module processor(
     assign bypass[29] = lw;
     assign bypass[18] = RWE;
     assign bypass[19] = JR;
-    latchFE DX_BYPASS0(DX_BYPASS, bypass, clock, !stall, reset);
+    assign bypass[20] = BLT | BNE;
+    assign bypass[25:21] = rd;
+    wire [31:0] NOPorBYPASS;
+    assign NOPorBYPASS = (stall | insertNOP | flushBRANCH) ? 32'b0 : bypass;
+    latchFE DX_BYPASS0(DX_BYPASS, NOPorBYPASS, clock, 1'b1, reset);
+    // FD BYPASS LATCH
+    wire [31:0] FD_BYPASS;
+    assign FD_BYPASS = bypass;
+    assign FDB = FD_BYPASS;
     assign DXB = DX_BYPASS;
     //---------DX LATCH---------
 
@@ -268,10 +276,10 @@ module processor(
     // eventually will also have to latch rsout in order to do jumps TODO
     // control values also get latched other than ALUin2 and ALUop
     wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE, XM_MDEX, multdivEX, multdivbypass, XM_BYPASS;
-    assign ALUorMD = stall ? 32'b0 : ((rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT); // for MULTDIV
-    assign ctrlThrough = stall ? 32'b0 : ((rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL);
-    assign multdivEX[0] = stall ? 32'b0 : ((rdy & (mdOP[10]|mdOP[11])) ? mdEX : 32'b0);
-    assign multdivbypass = stall ? 32'b0 : ((rdy & (mdOP[10]|mdOP[11])) ? mdByp : DX_BYPASS);
+    assign ALUorMD = ((rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT); // for MULTDIV
+    assign ctrlThrough = ((rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL);
+    assign multdivEX[0] = ((rdy & (mdOP[10]|mdOP[11])) ? mdEX : 32'b0);
+    assign multdivbypass = ((rdy & (mdOP[10]|mdOP[11])) ? mdByp : DX_BYPASS);
     latchFE XM_MDEX0(XM_MDEX, multdivEX, clock, 1'b1, reset);
     latchFE XM_RTVAL0(XM_RTVAL, DX_RTVAL, clock, 1'b1, reset);
     latchFE XM_RSVAL0(XM_RSVAL, DX_RSVAL, clock, 1'b1, reset);
