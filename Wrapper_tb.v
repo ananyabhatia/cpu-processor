@@ -33,7 +33,7 @@
  *
  **/
 
-module Wrapper_tb #(parameter FILE = "bypbranch");
+module Wrapper_tb #(parameter FILE = "jr");
 
 	// FileData
 	localparam DIR = "Test Files/";

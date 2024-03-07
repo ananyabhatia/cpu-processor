@@ -64,9 +64,9 @@ module processor(
 	/* YOUR CODE STARTS HERE */
     // BYPASSING
     wire stall, DMEMdata;
-    wire [1:0] bypALUinA, bypALUinB;
+    wire [1:0] bypALUinA, bypALUinB, jrByp;
     wire [31:0] DXB, XMB, MWB;
-    bypass bypasser(stall, bypALUinA, bypALUinB, DMEMdata, DXB, XMB, MWB);
+    bypass bypasser(stall, bypALUinA, bypALUinB, DMEMdata, jrByp, DXB, XMB, MWB);
     //----------FETCH----------
     // have a single register PC (32 bits) FALLING EDGE!!!!!!!!!!!!!!!!
     wire insertNOP; // MULTDIV NOP INSERTION
@@ -199,6 +199,7 @@ module processor(
     assign bypass[30] = sw;
     assign bypass[29] = lw;
     assign bypass[18] = RWE;
+    assign bypass[19] = JR;
     latchFE DX_BYPASS0(DX_BYPASS, bypass, clock, !stall, reset);
     assign DXB = DX_BYPASS;
     //---------DX LATCH---------
@@ -255,7 +256,9 @@ module processor(
     assign pcSelect[0] = DX_OPCODE[12] | ((DX_CONTROL[9] & isNE) | (DX_CONTROL[8] & isLE)); // jr or branch and taken
     assign pcSelect[1] = DX_CONTROL[7] | (DX_OPCODE[13] & isNE); // j, jal, jr, or bex and ne
     assign flushBRANCH = pcSelect[0] | pcSelect[1];
-    mux_4 PCMUX(nextPC, pcSelect, PCplus1, PCplus1plusSEI, DX_TARGET, DX_RTVAL);
+    wire [31:0] jumpReg;
+    mux_4 jrmux(jumpReg, jrByp, DX_RTVAL, XM_TOWRITE, valuetoWrite, XM_TOWRITE);
+    mux_4 PCMUX(nextPC, pcSelect, PCplus1, PCplus1plusSEI, DX_TARGET, jumpReg);
     // BRANCHING SECTION
     //----------EXECUTE----------
 
