@@ -58,7 +58,7 @@ module regfile (
 			singlereg regZero(regOut, data_writeReg, clock, writeEn, ctrl_reset);
 			tristate readA(regOut, rA[i], data_readRegA);
 			tristate readB(regOut, rB[i], data_readRegB);
-			tristate readB(regOut, rF[i], data_readRegFPGA);
+			tristate readF(regOut, rF[i], data_readRegFPGA);
         end
     endgenerate
 	

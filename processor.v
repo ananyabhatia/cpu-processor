@@ -168,7 +168,7 @@ module processor(
     // ALL of the control signals also go into the DX latch and the instruction decode
         // need to latch rd (5), shamt (5), RWE (1), destRA (2), ALUopOut (5), ALUinSEI (1), DMWE (1), valtoWrite (2), BNE (1), BLT (1), PCmux (2)
         // 5 + 5 + 1 + 2 + 5 + 1 + 1 + 2 + 1 + 1 + 2
-    wire [31:0] controlIn;
+    wire [31:0] controlIn, DX_CONTROL_OUT;
     assign controlIn[31:27] = rd;
     assign controlIn[26:22] = shamt;
     assign controlIn[21] = RWE;
@@ -182,7 +182,9 @@ module processor(
     assign controlIn[7:6] = PCmux;
     assign controlIn[2] = addi;
     assign NOPorCONTROL = (stall | insertNOP | flushBRANCH) ? 32'b0 : controlIn;
-    latchFE DX_CONTROL0(DX_CONTROL, NOPorCONTROL, clock, 1'b1, reset);
+    latchFE DX_CONTROL0(DX_CONTROL_OUT, NOPorCONTROL, clock, 1'b1, reset);
+    assign DX_CONTROL[31:6] = DX_CONTROL_OUT[31:6];
+    assign DX_CONTROL[2] = DX_CONTROL_OUT[2];
     wire [31:0] latchOP;
     assign latchOP[4:0] = opcode;
     assign latchOP[9:5] = ALUop;
@@ -219,6 +221,7 @@ module processor(
     // ALUop control from the latch goes into the ALU op
     wire [31:0] ALUinB, ALUOUT, ALUinBbypass, ALUinA;
     wire isNE, isLE, ovf;
+    wire [31:0] XM_TOWRITE;
     mux_4 bypassA(ALUinA, bypALUinA, DX_RSVAL, XM_TOWRITE, valuetoWrite, XM_TOWRITE);
     mux_4 bypassB(ALUinBbypass, bypALUinB, DX_RTVAL, XM_TOWRITE, valuetoWrite, XM_TOWRITE);
     mux_2 RTorSEI(ALUinB, DX_CONTROL[13], ALUinBbypass, DX_SEI);
@@ -275,7 +278,7 @@ module processor(
     // eventually will have to latch rtout also for store word TODO
     // eventually will also have to latch rsout in order to do jumps TODO
     // control values also get latched other than ALUin2 and ALUop
-    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE, XM_MDEX, multdivEX, multdivbypass, XM_BYPASS;
+    wire [31:0] XM_ALUOUT, XM_PC, XM_CONTROL, XM_RTVAL, XM_RSVAL, ALUorMD, ctrlThrough, XM_TARGET, XM_OPCODE, XM_MDEX, multdivEX, multdivbypass, XM_BYPASS, XM_BYPASS_OUT;
     assign ALUorMD = ((rdy & (mdOP[10]|mdOP[11])) ? mdResult : ALUOUT); // for MULTDIV
     assign ctrlThrough = ((rdy & (mdOP[10]|mdOP[11])) ? mdCon : DX_CONTROL);
     assign multdivEX[0] = ((rdy & (mdOP[10]|mdOP[11])) ? mdEX : 32'b0);
@@ -288,8 +291,10 @@ module processor(
     latchFE XM_CONTROL0(XM_CONTROL, ctrlThrough, clock, 1'b1, reset);
     latchFE XM_TARGET0(XM_TARGET, DX_TARGET, clock, 1'b1, reset);
     latchFE XM_OPCODE0(XM_OPCODE, DX_OPCODE, clock, 1'b1, reset);
-    latchFE XM_BYPASS0(XM_BYPASS, multdivbypass, clock, 1'b1, reset);
+    latchFE XM_BYPASS0(XM_BYPASS_OUT, multdivbypass, clock, 1'b1, reset);
     assign XMB = XM_BYPASS;
+    assign XM_BYPASS[30:15] = XM_BYPASS_OUT[31:15];
+    assign XM_BYPASS[9:0] = XM_BYPASS_OUT[9:0];
     //----------XM LATCH----------
 
     //----------MEMORY----------
@@ -340,7 +345,6 @@ module processor(
     assign EXselect[2] = XM_CONTROL[16] | XM_CONTROL[2];
     wire [31:0] writeEX;
     mux_8 checkEXCEPTION(writeEX, EXselect, 32'd1, 32'd3, 32'b0, 32'd0, 32'd2, 32'b0, 32'd4, 32'd5);
-    wire [31:0] XM_TOWRITE;
     assign XM_TOWRITE = writeto30 ? writeEX : intermediatetoWriteMux;
     //----------MEMORY----------
 

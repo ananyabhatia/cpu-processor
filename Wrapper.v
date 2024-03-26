@@ -24,8 +24,16 @@
  *
  **/
 
-module Wrapper (clock, reset, SW, LED);
-	input clock, reset;
+module Wrapper (clock100, resetBtn, SW, LED);
+	input clock100, resetBtn;
+	
+	wire clock, reset;
+	assign reset = !resetBtn;
+	reg [7:0] counter = 0;
+	always @(posedge clock100) begin
+	   counter <= counter +1;
+	end
+    assign clock = counter[0];
 
 	wire rwe, mwe;
 	wire[4:0] rd, rs1, rs2;
@@ -40,7 +48,7 @@ module Wrapper (clock, reset, SW, LED);
 
 
 	// ADD YOUR MEMORY FILE HERE
-	localparam INSTR_FILE = "Test Files/Memory Files/sort";
+	localparam INSTR_FILE = "sort";
 	
 	// Main Processing Unit
 	processor CPU(.clock(clock), .reset(reset), 
