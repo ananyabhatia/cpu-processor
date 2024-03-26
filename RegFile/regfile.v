@@ -2,25 +2,28 @@ module regfile (
 	clock,
 	ctrl_writeEnable, ctrl_reset, ctrl_writeReg,
 	ctrl_readRegA, ctrl_readRegB, data_writeReg,
-	data_readRegA, data_readRegB
+	data_readRegA, data_readRegB, data_readRegFPGA, ctrl_readRegFPGA
 );
 
 	input clock, ctrl_writeEnable, ctrl_reset;
-	input [4:0] ctrl_writeReg, ctrl_readRegA, ctrl_readRegB;
+	input [4:0] ctrl_writeReg, ctrl_readRegA, ctrl_readRegB, ctrl_readRegFPGA;
 	input [31:0] data_writeReg;
 
-	output [31:0] data_readRegA, data_readRegB;
+	output [31:0] data_readRegA, data_readRegB, data_readRegFPGA;
 
 	// add your code here
 
 	// need three decoders
-	wire [31:0] rA, rB, w;
+	wire [31:0] rA, rB, rF, w;
 	// 1. readregA
 	decoder32 readRegA(rA, ctrl_readRegA, 1'b1);
 	// 2. readregB
 	decoder32 readRegB(rB, ctrl_readRegB, 1'b1);
 	// 3. writereg
 	decoder32 writeReg(w, ctrl_writeReg, 1'b1);
+	// read for FPGA board
+	decoder32 readRegF(rF, ctrl_readRegFPGA, 1'b1);
+
 
 	// make sure to wire register zero to zero (turn write enable off)
 
@@ -55,6 +58,7 @@ module regfile (
 			singlereg regZero(regOut, data_writeReg, clock, writeEn, ctrl_reset);
 			tristate readA(regOut, rA[i], data_readRegA);
 			tristate readB(regOut, rB[i], data_readRegB);
+			tristate readB(regOut, rF[i], data_readRegFPGA);
         end
     endgenerate
 	

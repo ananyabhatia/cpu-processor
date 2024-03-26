@@ -24,7 +24,7 @@
  *
  **/
 
-module Wrapper (clock, reset);
+module Wrapper (clock, reset, SW, LED);
 	input clock, reset;
 
 	wire rwe, mwe;
@@ -33,9 +33,14 @@ module Wrapper (clock, reset);
 		rData, regA, regB,
 		memAddr, memDataIn, memDataOut;
 
+	input [15:0] SW;
+	output [15:0] LED;
+	wire [31:0] readFPGA;
+	assign LED[15:0] = readFPGA[15:0];
+
 
 	// ADD YOUR MEMORY FILE HERE
-	localparam INSTR_FILE = "";
+	localparam INSTR_FILE = "Test Files/Memory Files/sort";
 	
 	// Main Processing Unit
 	processor CPU(.clock(clock), .reset(reset), 
@@ -63,7 +68,7 @@ module Wrapper (clock, reset);
 		.ctrl_writeEnable(rwe), .ctrl_reset(reset), 
 		.ctrl_writeReg(rd),
 		.ctrl_readRegA(rs1), .ctrl_readRegB(rs2), 
-		.data_writeReg(rData), .data_readRegA(regA), .data_readRegB(regB));
+		.data_writeReg(rData), .data_readRegA(regA), .data_readRegB(regB), .ctrl_readRegFPGA(SW[4:0]), .data_readRegFPGA(readFPGA));
 						
 	// Processor Memory (RAM)
 	RAM ProcMem(.clk(clock), 
