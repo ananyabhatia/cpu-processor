@@ -2,27 +2,29 @@ module regfile (
 	clock,
 	ctrl_writeEnable, ctrl_reset, ctrl_writeReg,
 	ctrl_readRegA, ctrl_readRegB, data_writeReg,
-	data_readRegA, data_readRegB, data_readRegFPGA, ctrl_readRegFPGA
+	data_readRegA, data_readRegB, data_readRegFPGA1, data_readRegFPGA2, ctrl_readRegFPGA1, ctrl_readRegFPGA2
 );
 
 	input clock, ctrl_writeEnable, ctrl_reset;
-	input [4:0] ctrl_writeReg, ctrl_readRegA, ctrl_readRegB, ctrl_readRegFPGA;
+	input [4:0] ctrl_writeReg, ctrl_readRegA, ctrl_readRegB, ctrl_readRegFPGA1, ctrl_readRegFPGA2;
 	input [31:0] data_writeReg;
 
-	output [31:0] data_readRegA, data_readRegB, data_readRegFPGA;
+	output [31:0] data_readRegA, data_readRegB, data_readRegFPGA1, data_readRegFPGA2;
 
 	// add your code here
 
 	// need three decoders
-	wire [31:0] rA, rB, rF, w;
+	wire [31:0] rA, rB, rF1, rF2, w;
 	// 1. readregA
 	decoder32 readRegA(rA, ctrl_readRegA, 1'b1);
 	// 2. readregB
 	decoder32 readRegB(rB, ctrl_readRegB, 1'b1);
 	// 3. writereg
 	decoder32 writeReg(w, ctrl_writeReg, 1'b1);
-	// read for FPGA board
-	decoder32 readRegF(rF, ctrl_readRegFPGA, 1'b1);
+	// read for FPGA board 1
+	decoder32 readRegF1(rF1, ctrl_readRegFPGA1, 1'b1);
+	// read for FPGA board 2
+	decoder32 readRegF2(rF2, ctrl_readRegFPGA2, 1'b1);
 
 
 	// make sure to wire register zero to zero (turn write enable off)
@@ -58,7 +60,8 @@ module regfile (
 			singlereg regZero(regOut, data_writeReg, clock, writeEn, ctrl_reset);
 			tristate readA(regOut, rA[i], data_readRegA);
 			tristate readB(regOut, rB[i], data_readRegB);
-			tristate readF(regOut, rF[i], data_readRegFPGA);
+			tristate readF1(regOut, rF1[i], data_readRegFPGA1);
+			tristate readF2(regOut, rF2[i], data_readRegFPGA2);
         end
     endgenerate
 	

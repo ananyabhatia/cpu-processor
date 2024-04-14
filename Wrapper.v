@@ -24,12 +24,13 @@
  *
  **/
 
-module Wrapper (clock100, resetBtn, SW, LED);
-	input clock100, resetBtn;
+module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, JA);
+	input clock100, resetBtn, BTNL, BTNR;
+	output [3:1] JA;
 	
 	wire clock, reset;
 	assign reset = !resetBtn;
-	reg [7:0] counter = 0;
+	reg [17:0] counter = 0;
 	always @(posedge clock100) begin
 	   counter <= counter +1;
 	end
@@ -43,9 +44,12 @@ module Wrapper (clock100, resetBtn, SW, LED);
 
 	input [15:0] SW;
 	output [15:0] LED;
-	wire [31:0] readFPGA;
-	assign LED[15:0] = readFPGA[15:0];
-
+	//wire [31:0] readFPGA;
+	//assign LED[15:0] = readFPGA[15:0];
+	wire [31:0] motorON, motorDIR;
+	wire [31:0] cpuRegA;
+	assign cpuRegA[0] = (rs1 == 5'd2) ? BTNR : ((rs1 == 5'd1) ? BTNL : regA[0]);
+	assign cpuRegA[31:1] = regA[31:1];
 
 	// ADD YOUR MEMORY FILE HERE
 	localparam INSTR_FILE = "sort";
@@ -59,7 +63,7 @@ module Wrapper (clock100, resetBtn, SW, LED);
 		// Regfile
 		.ctrl_writeEnable(rwe),     .ctrl_writeReg(rd),
 		.ctrl_readRegA(rs1),     .ctrl_readRegB(rs2), 
-		.data_writeReg(rData), .data_readRegA(regA), .data_readRegB(regB),
+		.data_writeReg(rData), .data_readRegA(cpuRegA), .data_readRegB(regB),
 									
 		// RAM
 		.wren(mwe), .address_dmem(memAddr), 
@@ -76,7 +80,9 @@ module Wrapper (clock100, resetBtn, SW, LED);
 		.ctrl_writeEnable(rwe), .ctrl_reset(reset), 
 		.ctrl_writeReg(rd),
 		.ctrl_readRegA(rs1), .ctrl_readRegB(rs2), 
-		.data_writeReg(rData), .data_readRegA(regA), .data_readRegB(regB), .ctrl_readRegFPGA(SW[4:0]), .data_readRegFPGA(readFPGA));
+		.data_writeReg(rData), .data_readRegA(regA), .data_readRegB(regB), 
+		.ctrl_readRegFPGA1(5'd4), .data_readRegFPGA1(motorON),
+		.ctrl_readRegFPGA2(5'd5), .data_readRegFPGA2(motorDIR));
 						
 	// Processor Memory (RAM)
 	RAM ProcMem(.clk(clock), 
@@ -84,5 +90,14 @@ module Wrapper (clock100, resetBtn, SW, LED);
 		.addr(memAddr[11:0]), 
 		.dataIn(memDataIn), 
 		.dataOut(memDataOut));
+		
+	// JA1 reset button
+	assign JA[1] = motorON[0];
+	// JA2 is direction
+	assign JA[2] = motorDIR[0];
+	// JA3 is STEP
+    assign JA[3] = counter[17];
+	
+	
 
 endmodule
