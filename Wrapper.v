@@ -52,7 +52,7 @@ module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, JA);
 	assign cpuRegA[31:1] = regA[31:1];
 
 	// ADD YOUR MEMORY FILE HERE
-	localparam INSTR_FILE = "sort";
+	localparam INSTR_FILE = "final";
 	
 	// Main Processing Unit
 	processor CPU(.clock(clock), .reset(reset), 
