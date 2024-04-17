@@ -12,7 +12,18 @@
 # 268435456
 
 addi $r6, $r0, 1 
-sll $r6, $r6, 28 # in reg 6 is 268435456
+# in reg 6 is 268435456
+sll $r6, $r6, 28 
+addi $r9, $r0, 9344
+addi $r10, $r10, 7324
+#68435456
+mul $r9, $r9, $r10 
+sub $r6, $r6, $r9 
+# in reg 6 is 200,000,000
+addi $r10, $r10, 2
+div $r6, $r6, $r10
+# now reg 6 has 100,000,000
+
 add $r7, $r6, $r0
 
 _start:
@@ -22,22 +33,29 @@ j _start
 
 #---ON---
 pressOn:
-addi $r5, $r0, 1 #choose direction (WILL TEST THIS LATER)
-addi $r4, $r0, 1 # motor on
+#choose direction (WILL TEST THIS LATER)
+addi $r5, $r0, 1 
+# motor on
+addi $r4, $r0, 1 
 #WAIT
 _waitOn:
 addi $r7, $r7, -1
 bne $r7, $r0, _waitOn
 #END
+# reset reg 7 to master value of reg 6
 add $r7, $r6, $r0
-addi $r4, $r0, 0 # motor off
-addi $r3, $r3, 1 # increment number of cupcakes frosted so far 
+# motor off
+addi $r4, $r0, 0 
+# increment number of cupcakes frosted so far 
+addi $r3, $r3, 1 
 j _start
 
 #---OFF---
 pressOff:
-addi $r5, $r0, 0 #choose direction (WILL TEST THIS LATER)
-addi $r4, $r0, 1 # motor on
+#choose direction (WILL TEST THIS LATER)
+addi $r5, $r0, 0 
+# motor on
+addi $r4, $r0, 1 
 # WAIT BUT ALSO MULTIPLY WAIT BY REGISTER 3
 #WAIT
 _outerStart:
@@ -47,6 +65,7 @@ bne $r7, $r0, _outerStart
 add $r7, $r6, $r0
 addi $r3, $r3, -1
 bne $r3, $r0, _outerStart
-addi $r4, $r0, 0 # motor off
+# motor off
+addi $r4, $r0, 0 
 j _start
 

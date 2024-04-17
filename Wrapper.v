@@ -30,7 +30,7 @@ module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, JA);
 	
 	wire clock, reset;
 	assign reset = !resetBtn;
-	reg [17:0] counter = 0;
+	reg [20:0] counter = 0;
 	always @(posedge clock100) begin
 	   counter <= counter +1;
 	end
@@ -95,8 +95,8 @@ module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, JA);
 	assign JA[1] = motorON[0];
 	// JA2 is direction
 	assign JA[2] = motorDIR[0];
-	// JA3 is STEP
-    assign JA[3] = counter[17];
+	// JA3 is STEP, counter[17] is ~ 190
+    assign JA[3] = counter[18];
 	
 	
 
