@@ -12,7 +12,7 @@
 # 268435456
 
 addi $r6, $r0, 1 
-sll $r6, $r6, 28 # in reg 6 is 268435456
+sll $r6, $r6, 20 # in reg 6 is 268435456
 add $r7, $r6, $r0
 
 _start:
