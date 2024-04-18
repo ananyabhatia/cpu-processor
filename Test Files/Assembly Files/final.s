@@ -12,8 +12,10 @@
 # 268435456
 
 addi $r6, $r0, 1 
-sll $r6, $r6, 20 # in reg 6 is 268435456
+sll $r6, $r6, 21 # in reg 6 is 268435456
 add $r7, $r6, $r0
+addi $r8, $r0, 1
+sll $r8, $r8, 22
 
 _start:
 bne $r1, $r0, pressOn
@@ -22,6 +24,20 @@ j _start
 
 #---ON---
 pressOn:
+bne $r3, $r0, genCase
+addi $r5, $r0, 1 #choose direction (WILL TEST THIS LATER)
+addi $r4, $r0, 1 # motor on
+#WAIT
+_waitOn:
+addi $r8, $r8, -1
+bne $r8, $r0, _waitOn
+#END
+addi $r4, $r0, 0 # motor off
+addi $r3, $r3, 1 # increment number of cupcakes frosted so far 
+j _start
+
+
+genCase:
 addi $r5, $r0, 1 #choose direction (WILL TEST THIS LATER)
 addi $r4, $r0, 1 # motor on
 #WAIT
