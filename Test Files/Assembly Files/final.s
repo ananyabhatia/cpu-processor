@@ -12,10 +12,10 @@
 # 268435456
 
 addi $r6, $r0, 1 
-sll $r6, $r6, 21 # in reg 6 is 268435456
+sll $r6, $r6, 22 # in reg 6 is 268435456
 add $r7, $r6, $r0
 addi $r8, $r0, 1
-sll $r8, $r8, 22
+sll $r8, $r8, 23
 
 _start:
 bne $r1, $r0, pressOn
