@@ -12,10 +12,13 @@
 # 268435456
 
 addi $r6, $r0, 1 
-sll $r6, $r6, 22 # in reg 6 is 268435456
+sll $r6, $r6, 24 # in reg 6 is 268435456
 add $r7, $r6, $r0
 addi $r8, $r0, 1
-sll $r8, $r8, 23
+sll $r8, $r8, 25
+addi $r9, $r0, 1
+sll $r9, $r9, 23
+add $r10, $r9, $r0
 
 _start:
 bne $r1, $r0, pressOn
@@ -57,10 +60,10 @@ addi $r4, $r0, 1 # motor on
 # WAIT BUT ALSO MULTIPLY WAIT BY REGISTER 3
 #WAIT
 _outerStart:
-addi $r7, $r7, -1
-bne $r7, $r0, _outerStart
+addi $r9, $r9, -1
+bne $r9, $r0, _outerStart
 #END
-add $r7, $r6, $r0
+add $r9, $r10, $r0
 addi $r3, $r3, -1
 bne $r3, $r0, _outerStart
 addi $r4, $r0, 0 # motor off
