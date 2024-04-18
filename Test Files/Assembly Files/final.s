@@ -11,18 +11,28 @@
 # 200000000
 # 268435456
 
+#--calc correct # cycles--
 addi $r6, $r0, 1 
+sll $r6, $r6, 8
+sll $r6, $r6, 8
+sll $r6, $r6, 8 
+sll $r6, $r6, 4 
 # in reg 6 is 268435456
-sll $r6, $r6, 28 
-addi $r9, $r0, 9344
-addi $r10, $r10, 7324
+addi $r9, $r0, 1
+sll $r9, $r9, 13 #8192
+addi $r9, $r9, 1152 # 9344
+addi $r10, $r0, 1
+sll $r10, $r10, 13 #8192
+addi $r20, $r0, 868
+sub $r10, $r10, $r20 #7324
 #68435456
 mul $r9, $r9, $r10 
 sub $r6, $r6, $r9 
 # in reg 6 is 200,000,000
-addi $r10, $r10, 2
+addi $r10, $r0, 2
 div $r6, $r6, $r10
 # now reg 6 has 100,000,000
+#--calc correct # cycles--
 
 add $r7, $r6, $r0
 
@@ -43,6 +53,28 @@ addi $r7, $r7, -1
 bne $r7, $r0, _waitOn
 #END
 # reset reg 7 to master value of reg 6
+#--calc correct # cycles--
+addi $r6, $r0, 1 
+sll $r6, $r6, 8
+sll $r6, $r6, 8
+sll $r6, $r6, 8 
+sll $r6, $r6, 4 
+# in reg 6 is 268435456
+addi $r9, $r0, 1
+sll $r9, $r9, 13 #8192
+addi $r9, $r9, 1152 # 9344
+addi $r10, $r0, 1
+sll $r10, $r10, 13 #8192
+addi $r20, $r0, 868
+sub $r10, $r10, $r20 #7324
+#68435456
+mul $r9, $r9, $r10 
+sub $r6, $r6, $r9 
+# in reg 6 is 200,000,000
+addi $r10, $r0, 2
+div $r6, $r6, $r10
+# now reg 6 has 100,000,000
+#--calc correct # cycles--
 add $r7, $r6, $r0
 # motor off
 addi $r4, $r0, 0 
@@ -62,7 +94,29 @@ _outerStart:
 addi $r7, $r7, -1
 bne $r7, $r0, _outerStart
 #END
-add $r7, $r6, $r0
+#--calc correct # cycles--
+addi $r6, $r0, 1 
+sll $r6, $r6, 8
+sll $r6, $r6, 8
+sll $r6, $r6, 8 
+sll $r6, $r6, 4 
+# in reg 6 is 268435456
+addi $r9, $r0, 1
+sll $r9, $r9, 13 #8192
+addi $r9, $r9, 1152 # 9344
+addi $r10, $r0, 1
+sll $r10, $r10, 13 #8192
+addi $r20, $r0, 868
+sub $r10, $r10, $r20 #7324
+#68435456
+mul $r9, $r9, $r10 
+sub $r6, $r6, $r9 
+# in reg 6 is 200,000,000
+addi $r10, $r0, 2
+div $r6, $r6, $r10
+# now reg 6 has 100,000,000
+#--calc correct # cycles--
+add $r7, $r6, $r0 # reset $r7 to original value
 addi $r3, $r3, -1
 bne $r3, $r0, _outerStart
 # motor off
