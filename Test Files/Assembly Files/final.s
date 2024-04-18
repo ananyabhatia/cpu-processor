@@ -11,29 +11,8 @@
 # 200000000
 # 268435456
 
-#--calc correct # cycles--
 addi $r6, $r0, 1 
-sll $r6, $r6, 8
-sll $r6, $r6, 8
-sll $r6, $r6, 8 
-sll $r6, $r6, 4 
-# in reg 6 is 268435456
-addi $r9, $r0, 1
-sll $r9, $r9, 13 #8192
-addi $r9, $r9, 1152 # 9344
-addi $r10, $r0, 1
-sll $r10, $r10, 13 #8192
-addi $r20, $r0, 868
-sub $r10, $r10, $r20 #7324
-#68435456
-mul $r9, $r9, $r10 
-sub $r6, $r6, $r9 
-# in reg 6 is 200,000,000
-addi $r10, $r0, 2
-div $r6, $r6, $r10
-# now reg 6 has 100,000,000
-#--calc correct # cycles--
-
+sll $r6, $r6, 28 # in reg 6 is 268435456
 add $r7, $r6, $r0
 
 _start:
@@ -43,83 +22,30 @@ j _start
 
 #---ON---
 pressOn:
-#choose direction (WILL TEST THIS LATER)
-addi $r5, $r0, 1 
-# motor on
-addi $r4, $r0, 1 
+addi $r5, $r0, 1 #choose direction (WILL TEST THIS LATER)
+addi $r4, $r0, 1 # motor on
 #WAIT
 _waitOn:
 addi $r7, $r7, -1
 bne $r7, $r0, _waitOn
 #END
-# reset reg 7 to master value of reg 6
-#--calc correct # cycles--
-addi $r6, $r0, 1 
-sll $r6, $r6, 8
-sll $r6, $r6, 8
-sll $r6, $r6, 8 
-sll $r6, $r6, 4 
-# in reg 6 is 268435456
-addi $r9, $r0, 1
-sll $r9, $r9, 13 #8192
-addi $r9, $r9, 1152 # 9344
-addi $r10, $r0, 1
-sll $r10, $r10, 13 #8192
-addi $r20, $r0, 868
-sub $r10, $r10, $r20 #7324
-#68435456
-mul $r9, $r9, $r10 
-sub $r6, $r6, $r9 
-# in reg 6 is 200,000,000
-addi $r10, $r0, 2
-div $r6, $r6, $r10
-# now reg 6 has 100,000,000
-#--calc correct # cycles--
 add $r7, $r6, $r0
-# motor off
-addi $r4, $r0, 0 
-# increment number of cupcakes frosted so far 
-addi $r3, $r3, 1 
+addi $r4, $r0, 0 # motor off
+addi $r3, $r3, 1 # increment number of cupcakes frosted so far 
 j _start
 
 #---OFF---
 pressOff:
-#choose direction (WILL TEST THIS LATER)
-addi $r5, $r0, 0 
-# motor on
-addi $r4, $r0, 1 
+addi $r5, $r0, 0 #choose direction (WILL TEST THIS LATER)
+addi $r4, $r0, 1 # motor on
 # WAIT BUT ALSO MULTIPLY WAIT BY REGISTER 3
 #WAIT
 _outerStart:
 addi $r7, $r7, -1
 bne $r7, $r0, _outerStart
 #END
-#--calc correct # cycles--
-addi $r6, $r0, 1 
-sll $r6, $r6, 8
-sll $r6, $r6, 8
-sll $r6, $r6, 8 
-sll $r6, $r6, 4 
-# in reg 6 is 268435456
-addi $r9, $r0, 1
-sll $r9, $r9, 13 #8192
-addi $r9, $r9, 1152 # 9344
-addi $r10, $r0, 1
-sll $r10, $r10, 13 #8192
-addi $r20, $r0, 868
-sub $r10, $r10, $r20 #7324
-#68435456
-mul $r9, $r9, $r10 
-sub $r6, $r6, $r9 
-# in reg 6 is 200,000,000
-addi $r10, $r0, 2
-div $r6, $r6, $r10
-# now reg 6 has 100,000,000
-#--calc correct # cycles--
-add $r7, $r6, $r0 # reset $r7 to original value
+add $r7, $r6, $r0
 addi $r3, $r3, -1
 bne $r3, $r0, _outerStart
-# motor off
-addi $r4, $r0, 0 
+addi $r4, $r0, 0 # motor off
 j _start
-
