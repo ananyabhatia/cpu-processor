@@ -11,60 +11,79 @@
 # 200000000
 # 268435456
 
-addi $r6, $r0, 1 
-sll $r6, $r6, 22 # in reg 6 is 268435456
+# to go DOWN
+# 1001, 0101, 0110, 1010
+# 9, 5, 6, 10
+# to go UP
+# 1010, 0110, 0101, 1001
+# 10, 6, 5, 9
+
+# REGISTER 29 - STACK POINTER
+# REGISTER 3 - # CUPCAKES FROSTED SO FAR
+# REGISTER 4 - HAS ALL THE OUTPUT PINS
+# REGISTER 6 - HOLD # LOOPS TO GO DOWN FOR ONE CUPCAKE (MASTER)
+# REGISTER 7 - HOLD # LOOPS TO GO DOWN FOR ONE CUPCAKE (COPY)
+# REGISTER 8 - HOLD # LOOPS TO GO UP FOR ONE CUPCAKE (MASTER)
+# REGISTER 9 - HOLD # LOOPS TO GO UP FOR ONE CUPCAKE (COPY)
+# REGISTER 10 - HOLDS DELAY # (MASTER)
+# REGISTER 11 - HOLDS DELAY # (COPY)
+
+
+
+
+addi $r29, $r0, 4095 
+addi $r6, $r6, 50
 add $r7, $r6, $r0
-addi $r8, $r0, 1
-sll $r8, $r8, 23
-addi $r9, $r0, 1
-sll $r9, $r9, 21
-add $r10, $r9, $r0
+addi $r8, $r8, 40
+addi $r9, $r9, 40
+addi $r10, $r10, 1
+sll $r10, $r10, 15
+add $r11, $r10, $r0
 
 _start:
 bne $r1, $r0, pressOn
 bne $r2, $r0, pressOff
 j _start
 
-#---ON---
-pressOn:
-bne $r3, $r0, genCase
-addi $r5, $r0, 1 #choose direction (WILL TEST THIS LATER)
-addi $r4, $r0, 1 # motor on
-#WAIT
-_waitOn:
-addi $r8, $r8, -1
-bne $r8, $r0, _waitOn
-#END
-addi $r4, $r0, 0 # motor off
-addi $r3, $r3, 1 # increment number of cupcakes frosted so far 
-j _start
-
-
-genCase:
-addi $r5, $r0, 1 #choose direction (WILL TEST THIS LATER)
-addi $r4, $r0, 1 # motor on
-#WAIT
-_waitOn:
+pressOn: 
+jal moveDown
 addi $r7, $r7, -1
-bne $r7, $r0, _waitOn
-#END
+bne $r7, $r0, pressOn
 add $r7, $r6, $r0
-addi $r4, $r0, 0 # motor off
-addi $r3, $r3, 1 # increment number of cupcakes frosted so far 
+addi $r3, $r3, 1
 j _start
 
-#---OFF---
 pressOff:
-addi $r5, $r0, 0 #choose direction (WILL TEST THIS LATER)
-addi $r4, $r0, 1 # motor on
-# WAIT BUT ALSO MULTIPLY WAIT BY REGISTER 3
-#WAIT
-_outerStart:
+mul $r9, $r9, $r3
+jal moveUp
 addi $r9, $r9, -1
-bne $r9, $r0, _outerStart
-#END
-add $r9, $r10, $r0
-addi $r3, $r3, -1
-bne $r3, $r0, _outerStart
-addi $r4, $r0, 0 # motor off
+bne $r9, $r0, pressOn
+add $r9, $r8, $r0
+add $r3, $r0, $r0
 j _start
+
+moveDown:
+addi $r4, $r0, 9
+jal delay
+addi $r4, $r0, 5
+jal delay
+addi $r4, $r0, 6
+jal delay
+addi $r4, $r0, 10
+jr $r31
+
+moveUp:
+addi $r4, $r0, 10
+jal delay
+addi $r4, $r0, 6
+jal delay
+addi $r4, $r0, 5
+jal delay
+addi $r4, $r0, 9
+jr $r31
+
+delay:
+addi $r11, $r11, -1
+bne $r11, $r0, delay
+add $r11, $r10, $r0
+jr $r31
