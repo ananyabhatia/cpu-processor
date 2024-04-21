@@ -29,20 +29,18 @@
 # REGISTER 11 - HOLDS DELAY # (COPY)
 
 
-
-
 addi $r29, $r0, 4095 
-addi $r6, $r6, 50
+addi $r6, $r6, 15
 add $r7, $r6, $r0
-addi $r8, $r8, 40
-addi $r9, $r9, 40
+addi $r8, $r0, 10
+addi $r9, $r0, 10
 addi $r10, $r10, 1
 sll $r10, $r10, 15
 add $r11, $r10, $r0
 
 _start:
 bne $r1, $r0, pressOn
-#bne $r2, $r0, pressOff
+bne $r2, $r0, pressOff
 j _start
 
 pressOn: 
@@ -75,6 +73,38 @@ bne $r7, $r0, pressOn
 add $r7, $r6, $r0
 addi $r3, $r3, 1
 j _start
+
+pressOff: 
+addi $r4, $r0, 10
+loop5:
+addi $r11, $r11, -1
+bne $r11, $r0, loop5
+add $r11, $r10, $r0
+
+addi $r4, $r0, 6
+loop6:
+addi $r11, $r11, -1
+bne $r11, $r0, loop6
+add $r11, $r10, $r0
+
+addi $r4, $r0, 5
+loop7:
+addi $r11, $r11, -1
+bne $r11, $r0, loop7
+add $r11, $r10, $r0
+
+addi $r4, $r0, 9
+loop8:
+addi $r11, $r11, -1
+bne $r11, $r0, loop8
+add $r11, $r10, $r0
+
+addi $r7, $r7, -1
+bne $r7, $r0, pressOn
+add $r7, $r6, $r0
+addi $r3, $r3, 1
+j _start
+
 
 
 # jal moveDown
