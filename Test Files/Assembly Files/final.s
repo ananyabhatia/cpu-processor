@@ -99,10 +99,9 @@ addi $r11, $r11, -1
 bne $r11, $r0, loop8
 add $r11, $r10, $r0
 
-addi $r7, $r7, -1
-bne $r7, $r0, pressOn
-add $r7, $r6, $r0
-addi $r3, $r3, 1
+addi $r9, $r9, -1
+bne $r9, $r0, pressOff
+add $r9, $r8, $r0
 j _start
 
 
