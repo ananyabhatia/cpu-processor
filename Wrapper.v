@@ -26,7 +26,7 @@
 
 module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, JA);
 	input clock100, resetBtn, BTNL, BTNR;
-	output [3:1] JA;
+	output [4:1] JA;
 	
 	wire clock, reset;
 	assign reset = !resetBtn;
@@ -94,9 +94,11 @@ module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, JA);
 	// JA1 reset button
 	assign JA[1] = motorON[0];
 	// JA2 is direction
-	assign JA[2] = motorDIR[0];
+	assign JA[2] = motorON[1];
 	// JA3 is STEP, counter[17] is ~ 190
-    assign JA[3] = counter[18];
+    assign JA[3] = motorON[2];
+    
+    assign JA[4] = motorON[3];
 	
 	
 
