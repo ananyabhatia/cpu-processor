@@ -24,8 +24,8 @@
  *
  **/
 
-module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, JA);
-	input clock100, resetBtn, BTNL, BTNR;
+module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, BTND, JA);
+	input clock100, resetBtn, BTNL, BTNR, BTND;
 	output [4:1] JA;
 	
 	wire clock, reset;
@@ -48,7 +48,7 @@ module Wrapper (clock100, resetBtn, SW, LED, BTNL, BTNR, JA);
 	//assign LED[15:0] = readFPGA[15:0];
 	wire [31:0] motorON, motorDIR;
 	wire [31:0] cpuRegA;
-	assign cpuRegA[0] = (rs1 == 5'd2) ? BTNR : ((rs1 == 5'd1) ? BTNL : regA[0]);
+	assign cpuRegA[0] = (rs1 == 5'd5) ? BTND: ((rs1 == 5'd2) ? BTNR : ((rs1 == 5'd1) ? BTNL : regA[0]));
 	assign cpuRegA[31:1] = regA[31:1];
 
 	// ADD YOUR MEMORY FILE HERE
