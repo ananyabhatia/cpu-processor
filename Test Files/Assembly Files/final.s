@@ -28,14 +28,14 @@
 # REGISTER 10 - HOLDS DELAY # (MASTER)
 # REGISTER 11 - HOLDS DELAY # (COPY)
 
-
+add $r3, $r0, $r0
 addi $r29, $r0, 4095 
 addi $r6, $r6, 15
 add $r7, $r6, $r0
-addi $r8, $r0, 10
-addi $r9, $r0, 10
+addi $r8, $r0, 14
+addi $r9, $r0, 14
 addi $r10, $r10, 1
-sll $r10, $r10, 15
+sll $r10, $r10, 17
 add $r11, $r10, $r0
 
 _start:
