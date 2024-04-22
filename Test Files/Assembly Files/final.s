@@ -102,6 +102,9 @@ add $r11, $r10, $r0
 addi $r9, $r9, -1
 bne $r9, $r0, pressOff
 add $r9, $r8, $r0
+
+addi $r3, $r3, -1
+bne $r3, $r0, pressOff
 j _start
 
 
