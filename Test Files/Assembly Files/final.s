@@ -128,7 +128,7 @@ pressOff:
 add $r18, $r3, $r14
 add $r19, $r0, $r14
 sll $r19, $r19, 2
-add $r9, $r0, $r19
+add $r9, $r9, $r19
 startLoops:
 addi $r4, $r0, 10
 loop5:
