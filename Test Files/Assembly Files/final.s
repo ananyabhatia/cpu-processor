@@ -45,8 +45,8 @@ addi $r6, $r0, 14
 addi $r7, $r0, 14
 addi $r8, $r0, 15
 addi $r9, $r0, 15
-addi $r12, $r0, 17
-addi $r13, $r0, 17
+addi $r12, $r0, 20
+addi $r13, $r0, 20
 addi $r10, $r10, 1
 sll $r10, $r10, 17
 add $r11, $r10, $r0
@@ -150,8 +150,8 @@ addi $r9, $r9, -1
 bne $r9, $r0, startLoops
 add $r9, $r8, $r0
 
-addi $r18, $r18, -1
-bne $r18, $r0, startLoops
+addi $r3, $r3, -1
+bne $r3, $r0, startLoops
 j _start
 
 
