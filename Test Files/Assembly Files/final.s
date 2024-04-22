@@ -19,6 +19,9 @@
 # 10, 6, 5, 9
 
 # REGISTER 29 - STACK POINTER
+# REGISTER 1 - GO UP
+# REGISTER 2 - GO DOWN
+# REGISTER 5 - GO UP MORE
 # REGISTER 3 - # CUPCAKES FROSTED SO FAR
 # REGISTER 4 - HAS ALL THE OUTPUT PINS
 # REGISTER 6 - HOLD # LOOPS TO GO DOWN FOR ONE CUPCAKE (MASTER)
@@ -27,13 +30,23 @@
 # REGISTER 9 - HOLD # LOOPS TO GO UP FOR ONE CUPCAKE (COPY)
 # REGISTER 10 - HOLDS DELAY # (MASTER)
 # REGISTER 11 - HOLDS DELAY # (COPY)
+# REGISTER 12 - HOLD # LOOPS TO GO DOWN FOR ONE CUPCAKE MORE (MASTER)
+# REGISTER 13 - HOLD # LOOPS TO GO DOWN FOR ONE CUPCAKE MORE (COPY)
+# REGISTER 14 - HOLD # CUPCAKES FROSTED MORE
+# REGISTER 18 - HOLD # CUPCAKES FROSTED TOTAL
 
+add $r5, $r0, $r0
+add $r2, $r0, $r0
+add $r1, $r0, $r0
 add $r3, $r0, $r0
+add $r14, $r0, $r0
 addi $r29, $r0, 4095 
-addi $r6, $r6, 15
-add $r7, $r6, $r0
-addi $r8, $r0, 14
-addi $r9, $r0, 14
+addi $r6, $r0, 14
+addi $r7, $r0, 14
+addi $r8, $r0, 15
+addi $r9, $r0, 15
+addi $r12, $r0, 17
+addi $r13, $r0, 17
 addi $r10, $r10, 1
 sll $r10, $r10, 17
 add $r11, $r10, $r0
@@ -41,6 +54,38 @@ add $r11, $r10, $r0
 _start:
 bne $r1, $r0, pressOn
 bne $r2, $r0, pressOff
+bne $r5, $r0, pressOnMORE
+j _start
+
+pressOnMORE: 
+addi $r4, $r0, 9
+loop9:
+addi $r11, $r11, -1
+bne $r11, $r0, loop9
+add $r11, $r10, $r0
+
+addi $r4, $r0, 5
+loop10:
+addi $r11, $r11, -1
+bne $r11, $r0, loop10
+add $r11, $r10, $r0
+
+addi $r4, $r0, 6
+loop11:
+addi $r11, $r11, -1
+bne $r11, $r0, loop11
+add $r11, $r10, $r0
+
+addi $r4, $r0, 10
+loop12:
+addi $r11, $r11, -1
+bne $r11, $r0, loop12
+add $r11, $r10, $r0
+
+addi $r13, $r13, -1
+bne $r13, $r0, pressOn
+add $r13, $r12, $r0
+addi $r14, $r14, 1
 j _start
 
 pressOn: 
@@ -75,6 +120,8 @@ addi $r3, $r3, 1
 j _start
 
 pressOff: 
+add $r18, $r3, $r4
+startLoops:
 addi $r4, $r0, 10
 loop5:
 addi $r11, $r11, -1
@@ -100,11 +147,11 @@ bne $r11, $r0, loop8
 add $r11, $r10, $r0
 
 addi $r9, $r9, -1
-bne $r9, $r0, pressOff
+bne $r9, $r0, startLoops
 add $r9, $r8, $r0
 
-addi $r3, $r3, -1
-bne $r3, $r0, pressOff
+addi $r18, $r18, -1
+bne $r18, $r0, startLoops
 j _start
 
 
